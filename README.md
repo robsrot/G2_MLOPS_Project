@@ -1,4 +1,4 @@
-# [Project Name: e.g., Retail Sales Forecasting]
+# [Project Name: Housing Prices]
 
 **Author:** TODO_STUDENT (Your Group Name or number)  
 **Course:** MLOps: Master in Business Analytics and Data Sciense
