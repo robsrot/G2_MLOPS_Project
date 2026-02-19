@@ -1,6 +1,6 @@
 # [Project Name: Housing Prices]
 
-**Author:** TODO_STUDENT (Your Group Name or number)  
+**Author:** Robyn
 **Course:** MLOps: Master in Business Analytics and Data Sciense
 **Status:** Session 1 (Initialization)
 
