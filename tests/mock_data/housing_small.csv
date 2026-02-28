@@ -1,0 +1,6 @@
+price,area,bedrooms,bathrooms,stories,mainroad,guestroom,basement,hotwaterheating,airconditioning,parking,prefarea,furnishingstatus
+200000,1200,2,1,1,yes,no,no,no,yes,1,no,furnished
+275000,1800,3,2,2,yes,yes,no,no,yes,2,yes,semi-furnished
+150000,900,2,1,1,no,no,no,no,no,0,no,unfurnished
+350000,2200,4,3,2,yes,yes,yes,no,yes,2,yes,furnished
+240000,1500,3,2,2,no,no,yes,no,no,1,no,semi-furnished
