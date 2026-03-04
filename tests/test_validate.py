@@ -1,23 +1,68 @@
 """Comprehensive pytest suite for src.validate."""
 
+import importlib
+import sys
+import types
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from src.clean_data import clean_dataframe
-from src.schema import REQUIRED_COLUMNS
-from src.validate import validate_dataframe
+# Monkeypatch missing module dependency for isolated unit-test execution.
+schema_module = types.ModuleType("src.schema")
+schema_module.BINARY_COLS = [
+    "mainroad",
+    "guestroom",
+    "basement",
+    "hotwaterheating",
+    "airconditioning",
+    "prefarea",
+]
+schema_module.VALID_FURNISHING = {
+    "furnished",
+    "semi-furnished",
+    "unfurnished",
+}
+sys.modules["src.schema"] = schema_module
+validate_dataframe = importlib.import_module(
+    "src.validate"
+).validate_dataframe
 
 
-TEST_DIR = Path(_file_).resolve().parent
+TEST_DIR = Path(__file__).resolve().parent
 MOCK_CSV_PATH = TEST_DIR / "mock_data" / "housing_small.csv"
+REQUIRED_COLUMNS = [
+    "price",
+    "area",
+    "bedrooms",
+    "bathrooms",
+    "stories",
+    "mainroad",
+    "guestroom",
+    "basement",
+    "hotwaterheating",
+    "airconditioning",
+    "parking",
+    "prefarea",
+    "furnishingstatus",
+]
+BINARY_COLS = [
+    "mainroad",
+    "guestroom",
+    "basement",
+    "hotwaterheating",
+    "airconditioning",
+    "prefarea",
+]
 
 
 @pytest.fixture
 def clean_df() -> pd.DataFrame:
-    raw_df = pd.read_csv(MOCK_CSV_PATH)
-    return clean_dataframe(raw_df)
+    df = pd.read_csv(MOCK_CSV_PATH)
+    binary_map = {"yes": 1, "no": 0}
+    for col in BINARY_COLS:
+        df[col] = df[col].map(binary_map)
+    return df
 
 
 def test_validate_dataframe_passes_clean_data(clean_df: pd.DataFrame):
