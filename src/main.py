@@ -75,30 +75,30 @@ def main():
 
     # 6. Separate data into inference holdout and modeling set
     print("\n[main] Step 6: Slicing Inference Set and Train/Test split")
-    
+
     # Slice off 50 rows purely for inference "smoke test"
     df_infer = df_clean.sample(n=50, random_state=42)
     df_modeling = df_clean.drop(df_infer.index)
-    
-    # Separate Features for the Inference set (drop target for real-world scenario)
+
+    # Separate Features for the Inference set (drop target for real-world)
     X_infer = df_infer.drop(columns=[TARGET_COLUMN])
-    
+
     # Separate Features and Target for the Modeling set
     X_modeling = df_modeling.drop(columns=[TARGET_COLUMN])
     y_modeling = df_modeling[TARGET_COLUMN]
-    
-    # Split the modeling data into 90% Train (for CV) and 10% Test (for final eval)
+
+    # Split the modeling data into 90% Train (for CV) and 10% Test
     X_train, X_test, y_train, y_test = train_test_split(
         X_modeling, y_modeling, test_size=0.10, random_state=42
     )
-    
-    print(f"[main] Data split complete!")
+
+    print("[main] Data split complete!")
     print(f"       Train shape: {X_train.shape}")
     print(f"       Test shape:  {X_test.shape}")
     print(f"       Infer shape: {X_infer.shape}")
 
     # 7. Train (Model 5): 5-fold CV + refit on training set.
-    # train_model expects (df, target_column), so we need to recombine X_train + y_train
+    # train_model expects (df, target_column), so we recombine X_train, y_train
     df_train = pd.concat([X_train, y_train], axis=1)
     pipeline, cv_results = train_model(df_train, TARGET_COLUMN)
 

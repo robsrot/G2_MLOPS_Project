@@ -13,17 +13,17 @@ MOCK_CSV_PATH = TEST_DIR / "mock_data" / "housing_small.csv"
 @pytest.fixture
 def large_mock_csv(tmp_path: Path) -> Path:
     """Create a large enough mock CSV for full pipeline testing.
-    
+
     Main requires at least:
     - 50 rows for inference holdout
     - 5+ rows for 5-fold CV training
     - So we need 60+ total rows
     """
     csv_path = tmp_path / "mock_housing_large.csv"
-    
+
     # Read the small mock CSV as a template
     template_df = pd.read_csv(MOCK_CSV_PATH)
-    
+
     # Replicate it 15 times to get 75 rows (5 original * 15 = 75)
     frames = []
     for i in range(15):
@@ -32,10 +32,10 @@ def large_mock_csv(tmp_path: Path) -> Path:
         df_copy["area"] = df_copy["area"] + (i * 50)
         df_copy["price"] = df_copy["price"] + (i * 5000)
         frames.append(df_copy)
-    
+
     large_df = pd.concat(frames, ignore_index=True)
     large_df.to_csv(csv_path, index=False)
-    
+
     return csv_path
 
 
@@ -57,29 +57,29 @@ def test_main_runs_with_mock_data(
     # Assert one artifact per major pipeline stage.
     processed_csv = tmp_path / "processed" / "clean.csv"
     assert processed_csv.exists()
-    
+
     # Verify processed data has expected structure
     df_processed = pd.read_csv(processed_csv)
     assert len(df_processed) > 0
     assert "price" in df_processed.columns
-    
+
     # Check model artifact
     model_files = list((tmp_path / "models").glob("model_*.joblib"))
     assert len(model_files) == 1
-    
+
     # Check evaluation plots
     assert (tmp_path / "reports" / "actual_vs_predicted.png").exists()
     assert (tmp_path / "reports" / "residuals.png").exists()
-    
+
     # Check predictions
     prediction_files = list((tmp_path / "inference").glob("predictions_*.csv"))
     assert len(prediction_files) == 1
-    
+
     # Verify predictions structure
     df_predictions = pd.read_csv(prediction_files[0])
     assert "prediction" in df_predictions.columns
     assert len(df_predictions) == 50  # Should match inference sample size
-    assert (df_predictions["prediction"] > 0).all()  # Prices should be positive
+    assert (df_predictions["prediction"] > 0).all()
 
 
 def test_main_creates_all_output_directories(
@@ -117,8 +117,9 @@ def test_main_raises_on_missing_raw_data_when_fetch_disabled(
     # Simulate ingestion failure
     def mock_ensure_raises(*args, **kwargs):
         raise FileNotFoundError("mock missing")
-    
-    monkeypatch.setattr(main_module, "ensure_raw_data_exists", mock_ensure_raises)
+
+    monkeypatch.setattr(main_module, "ensure_raw_data_exists",
+                        mock_ensure_raises)
 
     # Orchestration should propagate the root ingestion error.
     with pytest.raises(FileNotFoundError, match="mock missing"):
@@ -139,15 +140,15 @@ def test_main_preserves_data_split_contract(
     monkeypatch.setattr(main_module, "INFERENCE_DIR", tmp_path / "inference")
 
     main_module.main()
-    
+
     # Capture printed output to verify split sizes
     captured = capsys.readouterr()
-    
+
     # Check that split information is printed
     assert "Train shape:" in captured.out
     assert "Test shape:" in captured.out
     assert "Infer shape:" in captured.out
-    
+
     # Verify inference predictions count
     prediction_files = list((tmp_path / "inference").glob("predictions_*.csv"))
     df_predictions = pd.read_csv(prediction_files[0])

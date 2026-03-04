@@ -30,27 +30,30 @@ def train_df() -> pd.DataFrame:
         frames.append(part)
 
     expanded = pd.concat(frames, ignore_index=True)
-    
+
     # Encode categorical columns to match what pipeline expects
     # Binary yes/no columns -> 1/0
-    for col in ["mainroad", "guestroom", "basement", "hotwaterheating", "airconditioning", "prefarea"]:
+    for col in ["mainroad", "guestroom", "basement", "hotwaterheating",
+                "airconditioning", "prefarea"]:
         expanded[col] = (expanded[col] == "yes").astype(float)
-    
+
     # Furnishing status: furnished=0, semi-furnished=1, unfurnished=2
-    furnishing_map = {"furnished": 0.0, "semi-furnished": 1.0, "unfurnished": 2.0}
-    expanded["furnishingstatus"] = expanded["furnishingstatus"].map(furnishing_map)
-    
+    furnishing_map = {"furnished": 0.0,
+                      "semi-furnished": 1.0, "unfurnished": 2.0}
+    expanded["furnishingstatus"] = expanded["furnishingstatus"]\
+        .map(furnishing_map)
+
     # Convert numeric columns to float
     for col in ["bedrooms", "bathrooms", "stories", "parking"]:
         expanded[col] = expanded[col].astype(float)
-    
+
     return expanded
 
 
 @pytest.fixture
 def mock_pipeline() -> Pipeline:
     """Create a fitted pipeline without depending on train.py.
-    
+
     This simulates what train_model() produces: a sklearn Pipeline
     that expects log1p(price) as target and returns log-scale predictions.
     """
@@ -58,9 +61,10 @@ def mock_pipeline() -> Pipeline:
         ("scaler", StandardScaler()),
         ("regressor", LinearRegression())
     ])
-    
+
     # Fit on minimal dummy data matching the actual CSV structure
-    # Note: Using numeric encodings for categorical variables (as the real pipeline would)
+    # Note: Using numeric encodings for categorical variables
+    # (as the real pipeline would)
     X_dummy = pd.DataFrame({
         "area": [1000.0, 1200.0, 1500.0, 1800.0, 2000.0],
         "bedrooms": [2.0, 3.0, 3.0, 4.0, 4.0],
@@ -73,11 +77,11 @@ def mock_pipeline() -> Pipeline:
         "airconditioning": [1.0, 1.0, 0.0, 1.0, 1.0],
         "parking": [1.0, 2.0, 0.0, 2.0, 2.0],
         "prefarea": [0.0, 1.0, 0.0, 1.0, 0.0],
-        "furnishingstatus": [0.0, 1.0, 2.0, 0.0, 1.0]  # furnished=0, semi-furnished=1, unfurnished=2
+        "furnishingstatus": [0.0, 1.0, 2.0, 0.0, 1.0]
     })
     # Model trained on log-scale prices
     y_dummy = np.log1p([100000, 120000, 150000, 180000, 200000])
-    
+
     pipeline.fit(X_dummy, y_dummy)
     return pipeline
 
