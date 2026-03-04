@@ -1,0 +1,22 @@
+name: housing_prices_mlops
+
+channels:
+     - conda-forge
+     - defaults
+
+dependencies:
+     - python>=3.10
+     - pandas
+     - numpy
+     - matplotlib
+     - scikit-learn
+     - joblib
+     - jupyter
+     - ipykernel
+     - pytest
+     - pytest-cov
+     - coverage
+     - pip
+     
+     - pip:
+               - kagglehub
