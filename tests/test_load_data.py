@@ -9,25 +9,6 @@ import types
 import pandas as pd
 import pytest
 
-
-def _fake_load_csv(path: Path) -> pd.DataFrame:
-    path = Path(path)
-    if path.suffix.lower() != ".csv":
-        raise ValueError(f"Expected .csv file, got: {path}")
-    return pd.read_csv(path)
-
-
-def _fake_save_csv(df: pd.DataFrame, path: Path) -> None:
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
-
-
-_fake_utils_module = types.ModuleType("src.utils")
-_fake_utils_module.load_csv = _fake_load_csv
-_fake_utils_module.save_csv = _fake_save_csv
-sys.modules["src.utils"] = _fake_utils_module
-
 try:
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
 except NameError:
