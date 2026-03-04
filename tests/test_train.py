@@ -1,19 +1,87 @@
 """Comprehensive pytest suite for src.train."""
 
 from pathlib import Path
+import importlib
+import sys
+import types
 
 import joblib
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from src.clean_data import clean_dataframe
-from src.train import train_model
+
+def _get_feature_preprocessor() -> ColumnTransformer:
+    numeric_columns = [
+        "area",
+        "bedrooms",
+        "bathrooms",
+        "stories",
+        "parking",
+        "mainroad",
+        "guestroom",
+        "basement",
+        "hotwaterheating",
+        "airconditioning",
+        "prefarea",
+    ]
+    categorical_columns = ["furnishingstatus"]
+
+    return ColumnTransformer(
+        transformers=[
+            ("num", StandardScaler(), numeric_columns),
+            (
+                "cat",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+                categorical_columns,
+            ),
+        ],
+        remainder="drop",
+    )
+
+
+_features_stub = types.ModuleType("src.features")
+_features_stub.get_feature_preprocessor = _get_feature_preprocessor
 
 
 TEST_DIR = Path(__file__).resolve().parent
 MOCK_CSV_PATH = TEST_DIR / "mock_data" / "housing_small.csv"
+
+
+def _clean_dataframe_for_test(df: pd.DataFrame) -> pd.DataFrame:
+    cleaned = df.copy()
+
+    binary_columns = [
+        "mainroad",
+        "guestroom",
+        "basement",
+        "hotwaterheating",
+        "airconditioning",
+        "prefarea",
+    ]
+    binary_map = {"yes": 1, "no": 0, "Yes": 1, "No": 0}
+    for column in binary_columns:
+        if column in cleaned.columns:
+            cleaned[column] = cleaned[column].replace(binary_map)
+
+    if "area" in cleaned.columns:
+        cleaned["area"] = np.log1p(
+            pd.to_numeric(cleaned["area"], errors="coerce")
+        )
+
+    return cleaned
+
+
+@pytest.fixture
+def train_model_fn(monkeypatch):
+    monkeypatch.setitem(sys.modules, "src.features", _features_stub)
+    import src.train as train_module
+
+    train_module = importlib.reload(train_module)
+    return train_module.train_model
 
 
 @pytest.fixture
@@ -29,15 +97,18 @@ def train_df() -> pd.DataFrame:
         frames.append(part)
 
     expanded = pd.concat(frames, ignore_index=True)
-    return clean_dataframe(expanded)
+    return _clean_dataframe_for_test(expanded)
 
 
 # --- Core training contracts ---
 
 
-def test_train_model_returns_pipeline_and_cv_results(train_df: pd.DataFrame):
+def test_train_model_returns_pipeline_and_cv_results(
+    train_df: pd.DataFrame,
+    train_model_fn,
+):
     """train_model returns a fitted Pipeline and full CV result payload."""
-    pipeline, cv_results = train_model(train_df, target_column="price")
+    pipeline, cv_results = train_model_fn(train_df, target_column="price")
 
     assert isinstance(pipeline, Pipeline)
     assert {
@@ -60,9 +131,12 @@ def test_train_model_returns_pipeline_and_cv_results(train_df: pd.DataFrame):
     assert cv_results["rmse"] >= 0
 
 
-def test_trained_pipeline_predicts_log_prices(train_df: pd.DataFrame):
+def test_trained_pipeline_predicts_log_prices(
+    train_df: pd.DataFrame,
+    train_model_fn,
+):
     """Returned pipeline can predict on feature-only frame."""
-    pipeline, _ = train_model(train_df, target_column="price")
+    pipeline, _ = train_model_fn(train_df, target_column="price")
     X = train_df.drop(columns=["price"]).head(3)
 
     y_pred_log = pipeline.predict(X)
@@ -70,15 +144,22 @@ def test_trained_pipeline_predicts_log_prices(train_df: pd.DataFrame):
     assert np.isfinite(y_pred_log).all()
 
 
-def test_train_model_missing_target_column_raises(train_df: pd.DataFrame):
+def test_train_model_missing_target_column_raises(
+    train_df: pd.DataFrame,
+    train_model_fn,
+):
     """Missing target column fails fast."""
     with pytest.raises(KeyError):
-        train_model(train_df, target_column="not_a_real_target")
+        train_model_fn(train_df, target_column="not_a_real_target")
 
 
-def test_train_model_model_roundtrip(tmp_path: Path, train_df: pd.DataFrame):
+def test_train_model_model_roundtrip(
+    tmp_path: Path,
+    train_df: pd.DataFrame,
+    train_model_fn,
+):
     """Saved and reloaded trained pipeline remains usable for inference."""
-    pipeline, _ = train_model(train_df, target_column="price")
+    pipeline, _ = train_model_fn(train_df, target_column="price")
 
     model_path = tmp_path / "pipeline.joblib"
     joblib.dump(pipeline, model_path)
@@ -92,15 +173,15 @@ def test_train_model_model_roundtrip(tmp_path: Path, train_df: pd.DataFrame):
     assert np.isfinite(preds).all()
 
 
-def test_train_model_raises_on_empty_dataframe() -> None:
+def test_train_model_raises_on_empty_dataframe(train_model_fn) -> None:
     """Empty DataFrame should fail fast before training starts."""
     empty = pd.DataFrame(columns=["price", "area"])
 
     with pytest.raises(ValueError):
-        train_model(empty, target_column="price")
+        train_model_fn(empty, target_column="price")
 
 
-def test_train_model_raises_when_rows_less_than_folds() -> None:
+def test_train_model_raises_when_rows_less_than_folds(train_model_fn) -> None:
     """5-fold CV requires at least 5 rows."""
     tiny = pd.DataFrame(
         {
@@ -126,4 +207,42 @@ def test_train_model_raises_when_rows_less_than_folds() -> None:
     )
 
     with pytest.raises(ValueError):
-        train_model(tiny, target_column="price")
+        train_model_fn(tiny, target_column="price")
+
+
+def test_train_model_raises_when_df_is_not_dataframe(train_model_fn) -> None:
+    """Input must be a pandas DataFrame."""
+    with pytest.raises(TypeError):
+        train_model_fn([{"price": 100000}], target_column="price")
+
+
+def test_train_model_raises_when_target_column_is_invalid(
+    train_df: pd.DataFrame,
+    train_model_fn,
+) -> None:
+    """Target column name must be a non-empty string."""
+    with pytest.raises(TypeError):
+        train_model_fn(train_df, target_column=None)
+
+    with pytest.raises(TypeError):
+        train_model_fn(train_df, target_column="   ")
+
+
+def test_train_model_raises_when_target_has_missing_values(
+    train_df: pd.DataFrame,
+    train_model_fn,
+) -> None:
+    """Missing target values should fail before CV starts."""
+    bad = train_df.copy()
+    bad.loc[0, "price"] = np.nan
+
+    with pytest.raises(ValueError):
+        train_model_fn(bad, target_column="price")
+
+
+def test_train_model_raises_when_no_feature_columns(train_model_fn) -> None:
+    """Dropping target that leaves no features should raise ValueError."""
+    only_target = pd.DataFrame({"price": [100000, 120000, 130000, 140000]})
+
+    with pytest.raises(ValueError):
+        train_model_fn(only_target, target_column="price")
