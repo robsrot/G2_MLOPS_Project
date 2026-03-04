@@ -1,24 +1,22 @@
-name: housing_prices_mlops                      # Name of the conda MLOps 101ment 
+name: housing_prices_mlops
 
-channels: 
-     - conda-forge                             # Community channel with most up-to-date packages 
+channels:
+     - conda-forge
      - defaults
 
-dependencies: 
-     - python>=3.10                          # Stable and widely-used Python version for compatibility 
-     - pandas                                    # Core library for data loading (CSV, Excel) and manipulation
+dependencies:
+     - python>=3.10
+     - pandas
      - numpy
+     - matplotlib
      - scikit-learn
      - joblib
      - jupyter
      - ipykernel
-     - openpyxl                                 # Excel support for pandas (read/write .xlsx files) 
-     - pyyaml                                    # Read configuration from YAML files for flexibility 
-     - python-dotenv                        # Load MLOps 101ment variables from a .env file 
-     - pytest                                     # Testing framework for robust, maintainable code 
-     - pip                                          # Allows pip-only packages to be installed below 
- 
-     - pip: 
-            - pytest-cov                       # Test coverage reporting for code quality and completeness 
-            - black                               # Code formatting to enforce style and readability 
-            - flake8                              # Linting to check code for errors and best practices
+     - pytest
+     - pytest-cov
+     - coverage
+     - pip
+     
+     - pip:
+               - kagglehub
