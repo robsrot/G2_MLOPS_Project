@@ -1,26 +1,56 @@
 """Comprehensive pytest suite for src.features."""
 
-from pathlib import Path
+import sys
+import types
 
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.exceptions import NotFittedError
+from sklearn.preprocessing import OneHotEncoder
 
-from src.clean_data import clean_dataframe
+
+NUMERIC_COLS = ["area", "bedrooms", "bathrooms", "stories", "parking"]
+CATEGORICAL_COLS = ["furnishingstatus"]
+BINARY_COLS = [
+    "mainroad",
+    "guestroom",
+    "basement",
+    "hotwaterheating",
+    "airconditioning",
+    "prefarea",
+]
+
+
+schema_stub = types.ModuleType("src.schema")
+schema_stub.NUMERIC_COLS = NUMERIC_COLS
+schema_stub.CATEGORICAL_COLS = CATEGORICAL_COLS
+schema_stub.BINARY_COLS = BINARY_COLS
+sys.modules.setdefault("src.schema", schema_stub)
+
 from src.features import get_feature_preprocessor
-from src.schema import BINARY_COLS, CATEGORICAL_COLS, NUMERIC_COLS
-
-
-TEST_DIR = Path(__file__).resolve().parent
-MOCK_CSV_PATH = TEST_DIR / "mock_data" / "housing_small.csv"
 
 
 @pytest.fixture
 def clean_df() -> pd.DataFrame:
-    raw_df = pd.read_csv(MOCK_CSV_PATH)
-    return clean_dataframe(raw_df)
+    return pd.DataFrame(
+        {
+            "price": [13300000, 12250000, 12250000, 12215000],
+            "area": [7420, 8960, 9960, 7500],
+            "bedrooms": [4, 4, 3, 4],
+            "bathrooms": [2, 4, 2, 2],
+            "stories": [3, 4, 2, 2],
+            "parking": [2, 3, 2, 3],
+            "furnishingstatus": ["furnished", "semi-furnished", "unfurnished", "furnished"],
+            "mainroad": [1, 1, 1, 1],
+            "guestroom": [0, 0, 0, 0],
+            "basement": [0, 0, 1, 0],
+            "hotwaterheating": [0, 0, 0, 0],
+            "airconditioning": [1, 1, 0, 1],
+            "prefarea": [1, 0, 0, 1],
+        }
+    )
 
 
 def test_get_feature_preprocessor_returns_column_transformer():
@@ -89,3 +119,22 @@ def test_preprocessor_idempotent_transform(clean_df: pd.DataFrame):
     out2 = preprocessor.transform(X)
 
     np.testing.assert_allclose(out1, out2)
+
+
+def test_preprocessor_ohe_backward_compatibility_branch(monkeypatch: pytest.MonkeyPatch):
+    """Covers the except TypeError fallback for older sklearn APIs."""
+    call_count = {"n": 0}
+
+    def fake_one_hot_encoder(*args, **kwargs):
+        call_count["n"] += 1
+        if "sparse_output" in kwargs:
+            raise TypeError("unexpected keyword argument 'sparse_output'")
+        if "sparse" in kwargs:
+            kwargs["sparse_output"] = kwargs.pop("sparse")
+        return OneHotEncoder(*args, **kwargs)
+
+    monkeypatch.setattr("src.features.OneHotEncoder", fake_one_hot_encoder)
+
+    preprocessor = get_feature_preprocessor()
+    assert isinstance(preprocessor, ColumnTransformer)
+    assert call_count["n"] >= 2

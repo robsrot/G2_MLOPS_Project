@@ -1,7 +1,7 @@
 """
 Module: Model Training
 ----------------------
-Role: Split data, train model, and save the artifact.
-Input: pandas.DataFrame (Processed).
-Output: Serialized model file (e.g., .pkl) in `models/`.
+Role: Bundle preprocessing and algorithms into a single Pipeline and fit on training data.
+Input: pandas.DataFrame (Processed) + ColumnTransformer (Recipe).
+Output: Serialized scikit-learn Pipeline in `models/`.
 """

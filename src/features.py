@@ -99,3 +99,4 @@ def get_feature_preprocessor(
         f"binary: {binary_cols}"
     )
     return preprocessor
+
