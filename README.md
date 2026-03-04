@@ -1,13 +1,13 @@
 # Housing Prices Prediction
 
 **Author:** Group 2: Tom Biefel, Kishan Dhulashia, Álvaro Perez La Rosa, Robyn Rothlin, Carlos Suarez Álvarez, and Natalia Urrea 
-**Course:** MLOps: Master in Business Analytics and Data Sciense
+**Course:** MLOps: Master in Business Analytics and Data Science
 **Status:** Session 3 - Modularization & Production Readiness
 
 ---
 
 ## 1. Business Objective
-Real estate agencies price new listings inconsistently. Without a formal appraisal—which takes days and costs money—agents rely on intuition. The same property gets different estimates depending on who handles it. Overpriced listings sit; underpriced ones close fast but leave revenue on the table.
+Real estate agencies price new listings inconsistently. Without a formal appraisal agents rely on intuition. The same property gets different estimates depending on who handles it. Overpriced listings sit; underpriced ones close fast but leave revenue on the table.
 
 * **The Goal:** 
   > *An automated first-pass valuation tool that generates an instant price estimate the moment a new listing is registered. Agents input 12 attributes they already collect at intake (size, layout, amenities, location indicators) and receive a data-driven reference price before any further assessment is needed.*
@@ -50,7 +50,7 @@ Real estate agencies price new listings inconsistently. Without a formal apprais
   |Feature validity | All 12 features contribute meaningfully| Confirmed — no zero-weight features |
 
 
-* **Deployment Codition:**
+* **Deployment Condition:**
   > *The model output is always reviewed by an agent before being communicated to a seller. It is never surfaced as a final price.*
 
 ---
@@ -92,9 +92,7 @@ This project follows a strict separation between "Sandbox" (Notebooks) and "Prod
 housing_prices/
 ├── README.md                          # Project definition and guide
 ├── environment.yml                    # Reproducible Conda environment
-├── configs/config.yaml                # All pipeline parameters
-├── .env.example                       # Secrets template
-├── .gitignore
+├── config.yaml  
 │
 ├── notebooks/
 │   └── HousingPricesPrediction.ipynb  # Exploratory analysis (sandbox, read-only)
@@ -103,33 +101,34 @@ housing_prices/
 │   ├── __init__.py
 │   ├── main.py                        # Pipeline orchestrator (entry point)
 │   ├── load_data.py                   # Data ingestion (local CSV or Kaggle)
+│   ├── clean_data.py                  # Data cleaning and deterministic transforms
 │   ├── validate.py                    # Schema, dtype, and value checks
-│   ├── preprocess.py                  # Encoding, log transforms, scaling
+│   ├── features.py                    # Model-side preprocessing (scaling + encoding)
 │   ├── train.py                       # K-Fold CV training + artifact saving
 │   ├── evaluate.py                    # Metrics + diagnostic plots
 │   └── infer.py                       # Inference on new data
 │
-├── data/                              # IGNORED by Git
+├── data/
 │   ├── raw/                           # Source data (Housing.csv)
-│   └── processed/                     # Train/test splits
+│   ├── processed/                     # Cleaned training input (clean.csv)
+│   └── inference/                     # Prediction outputs (predictions_<timestamp>.csv)
 │
-├── models/                            # IGNORED by Git
-│   ├── model_5_kfold.pkl
-│   ├── scaler.pkl
-│   └── ohe_encoder.pkl
+├── models/
+│   └── model_<timestamp>.joblib
 │
 ├── reports/                           # Generated outputs
-│   ├── pipeline.log
-│   ├── model_5_kfold_metrics.txt
-│   ├── model_5_kfold_actual_vs_predicted.png
-│   └── model_5_kfold_residuals.png
+│   ├── actual_vs_predicted.png
+│   └── residuals.png
 │
 └── tests/
-    ├── conftest.py
+    ├── test_clean_data.py
+    ├── test_features.py
+    ├── test_infer.py
     ├── test_load_data.py
-    ├── test_validate.py
-    ├── test_preprocess.py
+    ├── test_main.py
+    ├── test_schema.py
     ├── test_train.py
+    ├── test_validate.py
     └── test_evaluate.py
 
 ```
@@ -159,7 +158,7 @@ Five models were developed and compared. Model 5 (K-Fold CV) was selected as the
 ## 6. Setup
 
   ### 1. Clone
-    git clone https://github.com/<YOUR_GITHUB_USER>/housing_prices.git
+    git clone https://github.com/robsrot/housing_prices.git
     cd housing_prices
 
   ### 2. Create environment
@@ -167,8 +166,7 @@ Five models were developed and compared. Model 5 (K-Fold CV) was selected as the
     conda activate housing_prices_mlops
 
   ### 3. Add dataset (or let the pipeline download from Kaggle on first run)
-    mkdir -p data/raw
-    cp /path/to/Housing.csv data/raw/Housing.csv
+    Place `Housing.csv` in `data/raw/Housing.csv`
 
 
 ## 7. Running the Pipeline
@@ -177,35 +175,40 @@ Five models were developed and compared. Model 5 (K-Fold CV) was selected as the
   
     python -m src.main
 
-Data stage only (load + validate)
-
-    python -m src.main --pipeline data
-
-Custom config
-
-    python -m src.main --config configs/config.yaml
-
 Output after a full run:
-> models/model_5_kfold.pkl\
-models/scaler.pkl
-models/ohe_encoder.pkl
-reports/model_5_kfold_metrics.txt
-reports/model_5_kfold_actual_vs_predicted.png
-reports/model_5_kfold_residuals.png
-reports/pipeline.log
+> data/processed/clean.csv
+models/model_<timestamp>.joblib
+reports/actual_vs_predicted.png
+reports/residuals.png
+data/inference/predictions_<timestamp>.csv
+
+## 7.1 Module Contracts (Quick Reference)
+
+- `src/load_data.py`: Loads only from disk/Kaggle helper and fails fast for invalid paths and malformed files.
+- `src/clean_data.py`: Applies deterministic cleaning and encoding, then returns a clean DataFrame.
+- `src/validate.py`: Enforces strict schema contract (required columns present, no unexpected columns, no invalid values).
+- `src/features.py`: Returns an unfitted preprocessing blueprint (ColumnTransformer).
+- `src/train.py`: Trains with 5-fold CV and returns a fitted pipeline plus CV metrics payload.
+- `src/evaluate.py`: Validates CV payload contracts before metric reporting and plot generation.
+- `src/infer.py`: Requires a callable `predict` pipeline and non-empty DataFrame input.
 
 
 ## 8. Coding Standards
 - PEP 8 - enforced via flake8
 - Type hints on all functions
 - Docstrings on all modules and functions
-- No hardcoded values - all params from config.yaml
-- No silent failures - all errors caught, logged, re-raised
+- Parameters and paths are centralized in src/main.py
+- No silent failures - key modules use fail-fast exceptions with explicit messages
 - No data leakage - scalers/encoders fit on train only
 
-  > flake8 src/ tests/   # Lint check
+  > flake8 src/ tests/        # Lint check
 
-  > black src/ tests/    # Auto-format
+  > black src/ tests/         # Auto-format
+
+  > python -m pytest -q       # Run tests
+
+  > coverage run -m pytest -q
+  > coverage report -m        # Coverage report
 
 ## Risks & Limitations 
 
@@ -226,12 +229,8 @@ Retrain periodically; monitor MAE against actual sale prices in production
   | 8 | Group Work 1 submission — business case + production-ready code |
   | 9–11 | Hydra config management, MLflow experiment tracking, W&B integration |
   | 12–14 | CI/CD via GitHub Actions; model serving via FastAPI |
-  | 15 | Final exam  |
 
 
 ## References 
 
 - [Kaggle — Housing Prices Dataset](https://www.kaggle.com/datasets/yasserh/housing-prices-dataset)
-
-- [2026 IE MLOps Course Reference Project](https://github.com/2026-IE-MLOps-Course/mlops_project)
-
