@@ -32,6 +32,7 @@ from src.train import train_model
 from src.evaluate import evaluate_model, save_evaluation_plots
 from src.infer import run_inference
 from src.utils import save_csv, save_model
+import pandas as pd
 
 
 # Paths and configuration
@@ -97,9 +98,9 @@ def main():
     print(f"       Infer shape: {X_infer.shape}")
 
     # 7. Train (Model 5): 5-fold CV + refit on training set.
-    # NOTE: Now passing X_train and y_train instead of df_clean
-    # You'll need to update train_model() signature to accept X, y instead of df
-    pipeline, cv_results = train_model(X_train, y_train)
+    # train_model expects (df, target_column), so we need to recombine X_train + y_train
+    df_train = pd.concat([X_train, y_train], axis=1)
+    pipeline, cv_results = train_model(df_train, TARGET_COLUMN)
 
     # 8. Save model
     model_path = MODELS_DIR / f"model_{run_id}.joblib"
