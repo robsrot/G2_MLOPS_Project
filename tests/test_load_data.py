@@ -8,6 +8,49 @@ import types
 
 import pandas as pd
 import pytest
+import joblib
+
+
+def _fake_load_csv(path: Path, read_options=None, **kwargs) -> pd.DataFrame:
+    """Fake load_csv that accepts read_options dict and other kwargs."""
+    path = Path(path)
+    if path.suffix.lower() != ".csv":
+        raise ValueError(f"Expected .csv file, got: {path}")
+    
+    # Unpack read_options if provided
+    if read_options is None:
+        read_options = {}
+    
+    return pd.read_csv(path, **read_options, **kwargs)
+
+
+def _fake_save_csv(df: pd.DataFrame, path: Path) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
+
+
+def _fake_save_model(model, filepath: Path) -> None:
+    """Fake save_model that actually saves using joblib."""
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, filepath)
+
+
+def _fake_load_model(filepath: Path):
+    """Fake load_model that loads from joblib."""
+    filepath = Path(filepath)
+    if not filepath.exists():
+        raise FileNotFoundError(f"Model not found at {filepath}")
+    return joblib.load(filepath)
+
+
+_fake_utils_module = types.ModuleType("src.utils")
+_fake_utils_module.load_csv = _fake_load_csv
+_fake_utils_module.save_csv = _fake_save_csv
+_fake_utils_module.save_model = _fake_save_model
+_fake_utils_module.load_model = _fake_load_model
+sys.modules["src.utils"] = _fake_utils_module
 
 try:
     PROJECT_ROOT = Path(__file__).resolve().parents[1]

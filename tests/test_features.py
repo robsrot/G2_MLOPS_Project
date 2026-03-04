@@ -22,11 +22,19 @@ BINARY_COLS = [
     "prefarea",
 ]
 
+# REQUIRED_COLUMNS should include all feature columns
+REQUIRED_COLUMNS = (
+    ["price"] + NUMERIC_COLS + CATEGORICAL_COLS + BINARY_COLS
+)
+
+VALID_FURNISHING = {"furnished", "semi-furnished", "unfurnished"}
 
 schema_stub = types.ModuleType("src.schema")
 schema_stub.NUMERIC_COLS = NUMERIC_COLS
 schema_stub.CATEGORICAL_COLS = CATEGORICAL_COLS
 schema_stub.BINARY_COLS = BINARY_COLS
+schema_stub.REQUIRED_COLUMNS = REQUIRED_COLUMNS
+schema_stub.VALID_FURNISHING = VALID_FURNISHING
 sys.modules.setdefault("src.schema", schema_stub)
 
 from src.features import get_feature_preprocessor
