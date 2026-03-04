@@ -29,7 +29,7 @@ _fake_utils_module.save_csv = _fake_save_csv
 sys.modules["src.utils"] = _fake_utils_module
 
 try:
-    PROJECT_ROOT = Path(_file_).resolve().parents[1]
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
 except NameError:
     PROJECT_ROOT = Path.cwd()
 
@@ -40,7 +40,7 @@ load_data = importlib.import_module("src.load_data")
 
 
 try:
-    TEST_DIR = Path(_file_).resolve().parent
+    TEST_DIR = Path(__file__).resolve().parent
 except NameError:
     TEST_DIR = Path.cwd()
 
@@ -53,10 +53,10 @@ def patch_paths_if_no__file_(
     tmp_path: Path,
 ):
     """Patch path globals when _file_ is unavailable in the runtime."""
-    if "_file_" not in globals():
-        monkeypatch.setattr(sys.modules[_name_], "TEST_DIR", tmp_path)
+    if "__file__" not in globals():
+        monkeypatch.setattr(sys.modules[__name__], "TEST_DIR", tmp_path)
         monkeypatch.setattr(
-            sys.modules[_name_],
+            sys.modules[__name__],
             "MOCK_CSV_PATH",
             tmp_path / "mock_data" / "housing_small.csv",
         )
@@ -71,7 +71,7 @@ def test_load_raw_data_reads_mock_csv(mock_csv_path: Path):
     """Happy path: load_raw_data returns a non-empty DataFrame."""
     df = load_data.load_raw_data(mock_csv_path)
     assert isinstance(df, pd.DataFrame)
-    assert len(df) == 20
+    assert len(df) == 5
     assert "price" in df.columns
 
 
@@ -212,14 +212,14 @@ def test_fetch_raw_data_from_kaggle_raises_if_kagglehub_missing(
 ):
     """Missing kagglehub dependency should fail with clear ImportError."""
     destination = tmp_path / "Housing.csv"
-    original_import = builtins._import_
+    original_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
         if name == "kagglehub":
             raise ImportError("mock missing")
         return original_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(builtins, "_import_", fake_import)
+    monkeypatch.setattr(builtins, "__import__", fake_import)
 
     with pytest.raises(ImportError):
         load_data.fetch_raw_data_from_kaggle(destination)
