@@ -1,6 +1,7 @@
 """Comprehensive pytest suite for src.load_data."""
 
 import builtins
+import importlib
 from pathlib import Path
 import sys
 import types
@@ -8,11 +9,57 @@ import types
 import pandas as pd
 import pytest
 
-import src.load_data as load_data
+
+def _fake_load_csv(path: Path) -> pd.DataFrame:
+    path = Path(path)
+    if path.suffix.lower() != ".csv":
+        raise ValueError(f"Expected .csv file, got: {path}")
+    return pd.read_csv(path)
 
 
-TEST_DIR = Path(_file_).resolve().parent
+def _fake_save_csv(df: pd.DataFrame, path: Path) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
+
+
+_fake_utils_module = types.ModuleType("src.utils")
+_fake_utils_module.load_csv = _fake_load_csv
+_fake_utils_module.save_csv = _fake_save_csv
+sys.modules["src.utils"] = _fake_utils_module
+
+try:
+    PROJECT_ROOT = Path(_file_).resolve().parents[1]
+except NameError:
+    PROJECT_ROOT = Path.cwd()
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+load_data = importlib.import_module("src.load_data")
+
+
+try:
+    TEST_DIR = Path(_file_).resolve().parent
+except NameError:
+    TEST_DIR = Path.cwd()
+
 MOCK_CSV_PATH = TEST_DIR / "mock_data" / "housing_small.csv"
+
+
+@pytest.fixture(autouse=True)
+def patch_paths_if_no__file_(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    """Patch path globals when _file_ is unavailable in the runtime."""
+    if "_file_" not in globals():
+        monkeypatch.setattr(sys.modules[_name_], "TEST_DIR", tmp_path)
+        monkeypatch.setattr(
+            sys.modules[_name_],
+            "MOCK_CSV_PATH",
+            tmp_path / "mock_data" / "housing_small.csv",
+        )
 
 
 @pytest.fixture
