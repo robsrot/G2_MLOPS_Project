@@ -1,4 +1,4 @@
-"""Comprehensive integration tests for src.main orchestration."""
+"""Comprehensive integration tests for src.main orchestration"""
 
 from pathlib import Path
 
