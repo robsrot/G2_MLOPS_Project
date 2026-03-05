@@ -38,7 +38,8 @@ def test_evaluate_model_returns_metrics_dict(toy_cv_results: dict):
 
 def test_evaluate_model_missing_metric_key_raises(toy_cv_results: dict):
     """Missing required keys should fail fast with ValueError."""
-    # Remove one required scalar metric from an otherwise valid payload.
+    # Enforces payload contract strictness so downstream reporting cannot
+    # silently proceed with incomplete metrics.
     broken = dict(toy_cv_results)
     broken.pop("rmse")
 
@@ -57,7 +58,8 @@ def test_save_evaluation_plots_rejects_mismatched_lengths(
     tmp_path: Path,
 ):
     """y_true/y_pred length mismatch should fail before plotting."""
-    # Shorten predictions to force alignment validation failure.
+    # Misaligned arrays invalidate residual analysis; this must fail early
+    # to avoid writing misleading diagnostics.
     broken = dict(toy_cv_results)
     broken["all_y_pred"] = broken["all_y_pred"][:-1]
 
@@ -70,7 +72,8 @@ def test_save_evaluation_plots_writes_pngs(
     tmp_path: Path,
 ):
     """save_evaluation_plots writes both expected PNG artifacts."""
-    # Happy path should materialize both report images.
+    # Confirms the reporting contract that stakeholders rely on: both
+    # diagnostic plots must be emitted in successful runs.
     save_evaluation_plots(toy_cv_results, reports_dir=tmp_path)
 
     assert (tmp_path / "actual_vs_predicted.png").exists()

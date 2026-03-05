@@ -23,7 +23,8 @@ BINARY_COLS = [
     "prefarea",
 ]
 
-# REQUIRED_COLUMNS should include all feature columns
+# Keep this explicit so tests fail if schema contracts drift and
+# preprocessing starts expecting a different feature surface.
 REQUIRED_COLUMNS = (
     ["price"] + NUMERIC_COLS + CATEGORICAL_COLS + BINARY_COLS
 )
@@ -69,7 +70,8 @@ def test_get_feature_preprocessor_returns_column_transformer():
 
 def test_preprocessor_can_fit_transform(clean_df: pd.DataFrame):
     """Happy path: preprocessor fits and transforms feature matrix."""
-    # Model input excludes target.
+    # Ensures preprocessing contract matches train-time usage where the
+    # target is never part of the feature matrix.
     X = clean_df.drop(columns=["price"])
     preprocessor = get_feature_preprocessor()
     transformed = preprocessor.fit_transform(X)
@@ -84,7 +86,8 @@ def test_preprocessor_transform_before_fit_raises(clean_df: pd.DataFrame):
     X = clean_df.drop(columns=["price"])
     preprocessor = get_feature_preprocessor()
 
-    # sklearn should guard against transform-before-fit usage.
+    # This protects pipeline callers from using stale/uninitialized
+    # preprocessing state, which would produce invalid features.
     with pytest.raises(NotFittedError):
         preprocessor.transform(X)
 
@@ -109,7 +112,8 @@ def test_preprocessor_fails_on_missing_required_feature(
     clean_df: pd.DataFrame,
 ):
     """Missing configured input feature should raise during fit."""
-    # Remove a required numeric feature from the design matrix.
+    # Verifies fail-fast behavior for schema drift, preventing silent model
+    # degradation when upstream data drops an expected column.
     X = clean_df.drop(columns=["price"]).drop(columns=["area"])
     preprocessor = get_feature_preprocessor()
 
