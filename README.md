@@ -45,9 +45,10 @@ Real estate agencies price new listings inconsistently. Without a formal apprais
 
   | Criterion | Threshold | Result
   | --- | --- | --- |
-  | R² | ≥ 0.65 | 0.661 |
-  | Adjusted R² | ≥ 0.64 | 0.653 |
-  |MAE | ≤ 868,000 (≤ 20% of median)| ~768,000 |
+  | R² | ≥ 0.65 | 0.653 |
+  | Adjusted R² | ≥ 0.64 | 0.644 |
+  |MAE | ≤ 868,000 (≤ 20% of median)| 747,580 |
+  |RMSE | — | 1,039,102 |
   |CV stability | No single fold deviates > 5% R² from the mean | Confirmed across 5 folds |
   |Feature validity | All 12 features contribute meaningfully| Confirmed — no zero-weight features |
 
@@ -65,7 +66,6 @@ PII/ Sensitive Information: None
 * **Source:** Kaggle - yasserh/housing-prices-dataset.
 * **Target Variable:** price - house sale price, range 1.75M–13.3M, median 4.34M
 * **Sensitive Info:** None
-  > *⚠️ **WARNING:** If the dataset contains sensitive data, it must NEVER be committed to GitHub. Ensure `data/` is in your `.gitignore`.*
 
 
 | Feature      | Type          |Description        |
@@ -104,11 +104,13 @@ housing_prices/
 │   ├── main.py                        # Pipeline orchestrator (entry point)
 │   ├── load_data.py                   # Data ingestion (local CSV or Kaggle)
 │   ├── clean_data.py                  # Data cleaning and deterministic transforms
+│   ├── schema.py                      # Schema definitions and column contracts
 │   ├── validate.py                    # Schema, dtype, and value checks
 │   ├── features.py                    # Model-side preprocessing (scaling + encoding)
 │   ├── train.py                       # K-Fold CV training + artifact saving
 │   ├── evaluate.py                    # Metrics + diagnostic plots
-│   └── infer.py                       # Inference on new data
+│   ├── infer.py                       # Inference on new data
+│   └── utils.py                       # Utility functions (save_csv, save_model)
 │
 ├── data/
 │   ├── raw/                           # Source data (Housing.csv)
@@ -123,15 +125,17 @@ housing_prices/
 │   └── residuals.png
 │
 └── tests/
+    ├── __init__.py
     ├── test_clean_data.py
+    ├── test_evaluate.py
     ├── test_features.py
     ├── test_infer.py
     ├── test_load_data.py
     ├── test_main.py
     ├── test_schema.py
     ├── test_train.py
-    ├── test_validate.py
-    └── test_evaluate.py
+    ├── test_utils.py
+    └── test_validate.py
 
 ```
 
@@ -146,9 +150,14 @@ Five models were developed and compared. Model 5 (K-Fold CV) was selected as the
 | 2 — Log Price              | + log(price) + log(area)                    | ~0.65  | ~0.64   |
 | 3 — Log + Lasso            | + LassoCV feature selection                 | ~0.64  | ~0.63   |
 | 4 — Log + Outlier Removal  | + IQR outlier removal on training set       | ~0.65  | ~0.64   |
-| 5 — K-Fold CV              | Model 2 preprocessing + 5-fold cross-val    | 0.661  | 0.653   |
+| 5 — K-Fold CV              | Model 2 preprocessing + 5-fold cross-val    | 0.653  | 0.644   |
 
 > Model 5 was selected because K-Fold CV ensures performance is not an artifact of a single favorable train/test split - the result holds across all 5 data partitions.
+
+**Data Split Strategy**
+- **Inference holdout:** 50 rows held out purely for final predictions (smoke test)
+- **Training set:** All remaining data (~495 rows), evaluated using 5-fold cross-validation
+- **Rationale:** K-fold CV eliminates the need for a separate test set by providing robust performance estimates across all data partitions. This maximizes training data while maintaining rigorous evaluation.
 
 **Preprocessing Pipeline (applied per fold)**
   1. Binary encoding: yes → 1, no → 0
@@ -188,11 +197,13 @@ data/inference/predictions_<timestamp>.csv
 
 - `src/load_data.py`: Loads only from disk/Kaggle helper and fails fast for invalid paths and malformed files.
 - `src/clean_data.py`: Applies deterministic cleaning and encoding, then returns a clean DataFrame.
+- `src/schema.py`: Defines required columns and data contracts for validation.
 - `src/validate.py`: Enforces strict schema contract (required columns present, no unexpected columns, no invalid values).
 - `src/features.py`: Returns an unfitted preprocessing blueprint (ColumnTransformer).
 - `src/train.py`: Trains with 5-fold CV and returns a fitted pipeline plus CV metrics payload.
 - `src/evaluate.py`: Validates CV payload contracts before metric reporting and plot generation.
 - `src/infer.py`: Requires a callable `predict` pipeline and non-empty DataFrame input.
+- `src/utils.py`: Utility functions for saving CSV files and joblib models.
 
 
 ## 8. Coding Standards
