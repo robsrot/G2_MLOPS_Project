@@ -36,9 +36,6 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from src.schema import BINARY_COLS, CATEGORICAL_COLS, NUMERIC_COLS
 
 
-CAT_COLS = CATEGORICAL_COLS
-
-
 def get_feature_preprocessor(
     numeric_cols: Optional[List[str]] = None,
     categorical_cols: Optional[List[str]] = None,
@@ -53,7 +50,7 @@ def get_feature_preprocessor(
         numeric_cols: Columns to StandardScale.
                            Defaults to NUMERIC_COLS defined above.
         categorical_cols: Columns to OneHotEncode (drop="first").
-                           Defaults to CAT_COLS defined above.
+                           Defaults to CATEGORICAL_COLS defined above.
         binary_cols: Already 0/1 integer columns — passed through
                            unchanged (remainder="passthrough" handles them,
                            and listing them explicitly keeps
@@ -66,7 +63,7 @@ def get_feature_preprocessor(
 
     # Use schema defaults unless caller intentionally overrides.
     numeric_cols = numeric_cols or NUMERIC_COLS
-    categorical_cols = categorical_cols or CAT_COLS
+    categorical_cols = categorical_cols or CATEGORICAL_COLS
     binary_cols = binary_cols or BINARY_COLS
 
     # OneHotEncoder
@@ -99,4 +96,3 @@ def get_feature_preprocessor(
         f"binary: {binary_cols}"
     )
     return preprocessor
-
