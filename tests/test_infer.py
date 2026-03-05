@@ -21,7 +21,8 @@ def train_df() -> pd.DataFrame:
     """Create test data without external dependencies."""
     raw_df = pd.read_csv(MOCK_CSV_PATH)
 
-    # Expand rows to support stable test data.
+    # Expand the tiny fixture so tests exercise inference contracts on more
+    # than a trivial number of rows and avoid brittle sample-specific behavior.
     frames = []
     for offset in range(5):
         part = raw_df.copy()
@@ -31,19 +32,20 @@ def train_df() -> pd.DataFrame:
 
     expanded = pd.concat(frames, ignore_index=True)
 
-    # Encode categorical columns to match what pipeline expects
-    # Binary yes/no columns -> 1/0
+    # Mirror the cleaned feature contract expected by inference pipelines.
+    # This keeps failures focused on infer.py behavior, not preprocessing gaps.
     for col in ["mainroad", "guestroom", "basement", "hotwaterheating",
                 "airconditioning", "prefarea"]:
         expanded[col] = (expanded[col] == "yes").astype(float)
 
-    # Furnishing status: furnished=0, semi-furnished=1, unfurnished=2
+    # Deterministic numeric encoding keeps this test independent from OHE logic
+    # so we can validate inference input/output contracts in isolation.
     furnishing_map = {"furnished": 0.0,
                       "semi-furnished": 1.0, "unfurnished": 2.0}
     expanded["furnishingstatus"] = expanded["furnishingstatus"]\
         .map(furnishing_map)
 
-    # Convert numeric columns to float
+    # Normalize dtypes to remove ambiguity around sklearn numeric handling.
     for col in ["bedrooms", "bathrooms", "stories", "parking"]:
         expanded[col] = expanded[col].astype(float)
 
@@ -62,9 +64,8 @@ def mock_pipeline() -> Pipeline:
         ("regressor", LinearRegression())
     ])
 
-    # Fit on minimal dummy data matching the actual CSV structure
-    # Note: Using numeric encodings for categorical variables
-    # (as the real pipeline would)
+    # Use a compact but realistic schema so contract tests stay fast while
+    # still representing production-like feature shapes.
     X_dummy = pd.DataFrame({
         "area": [1000.0, 1200.0, 1500.0, 1800.0, 2000.0],
         "bedrooms": [2.0, 3.0, 3.0, 4.0, 4.0],
@@ -79,7 +80,8 @@ def mock_pipeline() -> Pipeline:
         "prefarea": [0.0, 1.0, 0.0, 1.0, 0.0],
         "furnishingstatus": [0.0, 1.0, 2.0, 0.0, 1.0]
     })
-    # Model trained on log-scale prices
+    # Mimics project behavior where training target is log-transformed and
+    # inference converts back to original scale.
     y_dummy = np.log1p([100000, 120000, 150000, 180000, 200000])
 
     pipeline.fit(X_dummy, y_dummy)
@@ -90,7 +92,8 @@ def test_run_inference_returns_prediction_dataframe(
     train_df: pd.DataFrame, mock_pipeline: Pipeline
 ):
     """Happy path: inference returns finite, positive predictions."""
-    # Inference expects feature-only table.
+    # Enforces the production contract that target values are never available
+    # at prediction time.
     X = train_df.drop(columns=["price"]).head(4)
 
     predictions = run_inference(mock_pipeline, X)
@@ -109,6 +112,7 @@ def test_run_inference_preserves_input_index(
 
     predictions = run_inference(mock_pipeline, X)
 
+    # Preserving index is important for row-level traceability to source data.
     assert predictions.index.equals(X.index)
 
 
@@ -116,7 +120,7 @@ def test_run_inference_fails_on_missing_required_feature(
     train_df: pd.DataFrame, mock_pipeline: Pipeline
 ):
     """Missing required model feature should fail fast during transform."""
-    # Drop one required feature to trigger transformer validation.
+    # Fail-fast here prevents silent schema drift in upstream data pipelines.
     X_missing = train_df.drop(columns=["price", "area"]).head(3)
 
     with pytest.raises(ValueError):
