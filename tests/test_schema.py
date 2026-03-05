@@ -35,7 +35,8 @@ def test_schema_groups_are_subsets_of_required_columns():
 
 def test_valid_furnishing_categories_non_empty_strings():
     """Furnishing categories should be defined as meaningful strings."""
-    # Empty strings bypass categorical validation and create meaningless features
+    # Empty strings bypass categorical validation and create
+    # meaningless features
     assert len(schema.VALID_FURNISHING) > 0
     assert all(
         isinstance(item, str) and item.strip()
