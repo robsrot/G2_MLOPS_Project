@@ -32,10 +32,7 @@ imported from config.yml in a later session
 from pathlib import Path
 
 import pandas as pd
-import matplotlib
 import matplotlib.pyplot as plt
-
-matplotlib.use("Agg")
 
 
 REQUIRED_CV_KEYS = {
