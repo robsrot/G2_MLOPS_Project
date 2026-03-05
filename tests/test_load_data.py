@@ -16,11 +16,11 @@ def _fake_load_csv(path: Path, read_options=None, **kwargs) -> pd.DataFrame:
     path = Path(path)
     if path.suffix.lower() != ".csv":
         raise ValueError(f"Expected .csv file, got: {path}")
-    
+
     # Unpack read_options if provided
     if read_options is None:
         read_options = {}
-    
+
     return pd.read_csv(path, **read_options, **kwargs)
 
 

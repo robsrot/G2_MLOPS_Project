@@ -9,6 +9,7 @@ import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.exceptions import NotFittedError
 from sklearn.preprocessing import OneHotEncoder
+from src.features import get_feature_preprocessor
 
 
 NUMERIC_COLS = ["area", "bedrooms", "bathrooms", "stories", "parking"]
@@ -37,8 +38,6 @@ schema_stub.REQUIRED_COLUMNS = REQUIRED_COLUMNS
 schema_stub.VALID_FURNISHING = VALID_FURNISHING
 sys.modules.setdefault("src.schema", schema_stub)
 
-from src.features import get_feature_preprocessor
-
 
 @pytest.fixture
 def clean_df() -> pd.DataFrame:
@@ -50,7 +49,8 @@ def clean_df() -> pd.DataFrame:
             "bathrooms": [2, 4, 2, 2],
             "stories": [3, 4, 2, 2],
             "parking": [2, 3, 2, 3],
-            "furnishingstatus": ["furnished", "semi-furnished", "unfurnished", "furnished"],
+            "furnishingstatus": [
+                "furnished", "semi-furnished", "unfurnished", "furnished"],
             "mainroad": [1, 1, 1, 1],
             "guestroom": [0, 0, 0, 0],
             "basement": [0, 0, 1, 0],
@@ -129,7 +129,8 @@ def test_preprocessor_idempotent_transform(clean_df: pd.DataFrame):
     np.testing.assert_allclose(out1, out2)
 
 
-def test_preprocessor_ohe_backward_compatibility_branch(monkeypatch: pytest.MonkeyPatch):
+def test_preprocessor_ohe_backward_compatibility_branch(monkeypatch:
+                                                        pytest.MonkeyPatch):
     """Covers the except TypeError fallback for older sklearn APIs."""
     call_count = {"n": 0}
 
