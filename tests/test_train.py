@@ -65,7 +65,8 @@ def _clean_dataframe_for_test(df: pd.DataFrame) -> pd.DataFrame:
         "prefarea",
     ]
     binary_map = {"yes": 1, "no": 0, "Yes": 1, "No": 0}
-    # Normalize fixture variants so failures reflect training logic, not label casing.
+    # Normalize fixture variants so failures reflect training logic,
+    # not label casing.
     for column in binary_columns:
         if column in cleaned.columns:
             cleaned[column] = cleaned[column].replace(binary_map)
@@ -172,7 +173,8 @@ def test_train_model_model_roundtrip(
     joblib.dump(pipeline, model_path)
     reloaded = joblib.load(model_path)
 
-    # Catches serialization issues that only appear outside the training process.
+    # Catches serialization issues that only appear outside
+    # the training process.
     X = train_df.drop(columns=["price"]).head(5)
     preds = reloaded.predict(X)
 
