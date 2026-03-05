@@ -1,16 +1,10 @@
-<<<<<<< HEAD
-# [Project Name: Housing Prices]
-
-**Author:** Robyn
-**Course:** MLOps: Master in Business Analytics and Data Sciense
-**Status:** Session 1 (Initialization)
-=======
 # Housing Prices Prediction
 
 **Author:** Group 2: Tom Biefel, Kishan Dhulashia, Álvaro Perez La Rosa, Robyn Rothlin, Carlos Suarez Álvarez, and Natalia Urrea 
+
 **Course:** MLOps: Master in Business Analytics and Data Science
+
 **Status:** Session 3 - Modularization & Production Readiness
->>>>>>> 204c5f6fcd3de8608aef8f2dfcf9a6339d49f12f
 
 ---
 
