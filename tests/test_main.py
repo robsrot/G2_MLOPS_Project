@@ -132,7 +132,11 @@ def test_main_preserves_data_split_contract(
     large_mock_csv: Path,
     capsys,
 ):
-    """Verify that data splitting follows the expected 50/90/10 contract."""
+    """Verify that data splitting follows the expected train/inference split.
+    
+    Since K-fold CV is used, we only need training and inference sets.
+    No separate test set is required.
+    """
     monkeypatch.setattr(main_module, "RAW_DATA_PATH", large_mock_csv)
     monkeypatch.setattr(main_module, "PROCESSED_DIR", tmp_path / "processed")
     monkeypatch.setattr(main_module, "MODELS_DIR", tmp_path / "models")
@@ -144,10 +148,10 @@ def test_main_preserves_data_split_contract(
     # Capture printed output to verify split sizes
     captured = capsys.readouterr()
 
-    # Check that split information is printed
+    # Check that split information is printed (train + inference only)
     assert "Train shape:" in captured.out
-    assert "Test shape:" in captured.out
     assert "Infer shape:" in captured.out
+    assert "K-fold CV" in captured.out  # Verify K-fold is mentioned
 
     # Verify inference predictions count
     prediction_files = list((tmp_path / "inference").glob("predictions_*.csv"))

@@ -22,7 +22,6 @@ imported from config.yml in a later session
 
 from datetime import datetime
 from pathlib import Path
-from sklearn.model_selection import train_test_split
 
 from src.load_data import ensure_raw_data_exists, load_raw_data
 from src.clean_data import clean_dataframe
@@ -32,7 +31,6 @@ from src.train import train_model
 from src.evaluate import evaluate_model, save_evaluation_plots
 from src.infer import run_inference
 from src.utils import save_csv, save_model
-import pandas as pd
 
 
 # Paths and configuration
@@ -73,33 +71,23 @@ def main():
     # 5. Enforce schema/domain assumptions before model training.
     validate_dataframe(df_clean, required_columns=REQUIRED_COLUMNS)
 
-    # 6. Separate data into inference holdout and modeling set
-    print("\n[main] Step 6: Slicing Inference Set and Train/Test split")
+    # 6. Separate data into inference holdout and training set
+    print("\n[main] Step 6: Splitting into Training and Inference sets")
 
     # Slice off 50 rows purely for inference "smoke test"
     df_infer = df_clean.sample(n=50, random_state=42)
-    df_modeling = df_clean.drop(df_infer.index)
+    df_train = df_clean.drop(df_infer.index)
 
     # Separate Features for the Inference set (drop target for real-world)
     X_infer = df_infer.drop(columns=[TARGET_COLUMN])
 
-    # Separate Features and Target for the Modeling set
-    X_modeling = df_modeling.drop(columns=[TARGET_COLUMN])
-    y_modeling = df_modeling[TARGET_COLUMN]
-
-    # Split the modeling data into 90% Train (for CV) and 10% Test
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_modeling, y_modeling, test_size=0.10, random_state=42
-    )
-
     print("[main] Data split complete!")
-    print(f"       Train shape: {X_train.shape}")
-    print(f"       Test shape:  {X_test.shape}")
+    print(f"       Train shape: {df_train.shape} (will use K-fold CV)")
     print(f"       Infer shape: {X_infer.shape}")
 
-    # 7. Train (Model 5): 5-fold CV + refit on training set.
-    # train_model expects (df, target_column), so we recombine X_train, y_train
-    df_train = pd.concat([X_train, y_train], axis=1)
+    # 7. Train (Model 5): 5-fold CV on full training set.
+    # K-fold CV provides robust performance metrics without needing
+    # a separate test set.
     pipeline, cv_results = train_model(df_train, TARGET_COLUMN)
 
     # 8. Save model
@@ -107,9 +95,9 @@ def main():
     save_model(pipeline, model_path)
     print(f"[main] Model saved → {model_path}")
 
-    # 9. Evaluate on test set
+    # 9. Evaluate using K-fold CV metrics
     metrics = evaluate_model(cv_results)
-    print(f"[main] Final metrics: {metrics}")
+    print(f"[main] Final metrics from K-fold CV: {metrics}")
 
     # 10. Save evaluation plots into reports
     save_evaluation_plots(cv_results, reports_dir=REPORTS_DIR)
