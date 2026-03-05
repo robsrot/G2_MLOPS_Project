@@ -15,6 +15,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 def _get_feature_preprocessor() -> ColumnTransformer:
+    # Keeps test preprocessing aligned with training feature expectations.
     numeric_columns = [
         "area",
         "bedrooms",
@@ -44,6 +45,7 @@ def _get_feature_preprocessor() -> ColumnTransformer:
 
 
 _features_stub = types.ModuleType("src.features")
+# Keep training tests independent from feature-module implementation drift.
 _features_stub.get_feature_preprocessor = _get_feature_preprocessor
 
 
@@ -63,11 +65,13 @@ def _clean_dataframe_for_test(df: pd.DataFrame) -> pd.DataFrame:
         "prefarea",
     ]
     binary_map = {"yes": 1, "no": 0, "Yes": 1, "No": 0}
+    # Normalize fixture variants so failures reflect training logic, not label casing.
     for column in binary_columns:
         if column in cleaned.columns:
             cleaned[column] = cleaned[column].replace(binary_map)
 
     if "area" in cleaned.columns:
+        # Mirrors expected training-space scale for heavy-tailed area values.
         cleaned["area"] = np.log1p(
             pd.to_numeric(cleaned["area"], errors="coerce")
         )
@@ -80,6 +84,7 @@ def train_model_fn(monkeypatch):
     monkeypatch.setitem(sys.modules, "src.features", _features_stub)
     import src.train as train_module
 
+    # Force src.train to bind to the patched dependency each test run.
     train_module = importlib.reload(train_module)
     return train_module.train_model
 
@@ -88,7 +93,7 @@ def train_model_fn(monkeypatch):
 def train_df() -> pd.DataFrame:
     raw_df = pd.read_csv(MOCK_CSV_PATH)
 
-    # Expand small fixture to ensure stable 5-fold CV with enough rows.
+    # Replication keeps the fixture lightweight while satisfying CV minimums.
     frames = []
     for offset in range(5):
         part = raw_df.copy()
@@ -122,7 +127,7 @@ def test_train_model_returns_pipeline_and_cv_results(
     assert len(cv_results["all_y_true"]) == len(train_df)
     assert len(cv_results["all_y_pred"]) == len(train_df)
 
-    # Core metric outputs should be finite and non-negative where applicable.
+    # NaN/inf metrics usually signal fold leakage or invalid transforms.
     assert np.isfinite(cv_results["mae"])
     assert np.isfinite(cv_results["rmse"])
     assert np.isfinite(cv_results["r2"])
@@ -137,6 +142,7 @@ def test_trained_pipeline_predicts_log_prices(
 ):
     """Returned pipeline can predict on feature-only frame."""
     pipeline, _ = train_model_fn(train_df, target_column="price")
+    # Ensures inference path works when target is absent, as in production.
     X = train_df.drop(columns=["price"]).head(3)
 
     y_pred_log = pipeline.predict(X)
@@ -149,6 +155,7 @@ def test_train_model_missing_target_column_raises(
     train_model_fn,
 ):
     """Missing target column fails fast."""
+    # Avoids silent training on the wrong label.
     with pytest.raises(KeyError):
         train_model_fn(train_df, target_column="not_a_real_target")
 
@@ -165,7 +172,7 @@ def test_train_model_model_roundtrip(
     joblib.dump(pipeline, model_path)
     reloaded = joblib.load(model_path)
 
-    # Reloaded artifact should preserve inference contract.
+    # Catches serialization issues that only appear outside the training process.
     X = train_df.drop(columns=["price"]).head(5)
     preds = reloaded.predict(X)
 
@@ -175,6 +182,7 @@ def test_train_model_model_roundtrip(
 
 def test_train_model_raises_on_empty_dataframe(train_model_fn) -> None:
     """Empty DataFrame should fail fast before training starts."""
+    # Early guard prevents opaque downstream estimator errors.
     empty = pd.DataFrame(columns=["price", "area"])
 
     with pytest.raises(ValueError):
@@ -183,6 +191,7 @@ def test_train_model_raises_on_empty_dataframe(train_model_fn) -> None:
 
 def test_train_model_raises_when_rows_less_than_folds(train_model_fn) -> None:
     """5-fold CV requires at least 5 rows."""
+    # Makes CV preconditions explicit at the API boundary.
     tiny = pd.DataFrame(
         {
             "price": [100000, 120000, 130000, 140000],
@@ -212,6 +221,7 @@ def test_train_model_raises_when_rows_less_than_folds(train_model_fn) -> None:
 
 def test_train_model_raises_when_df_is_not_dataframe(train_model_fn) -> None:
     """Input must be a pandas DataFrame."""
+    # Enforces predictable column semantics for downstream transforms.
     with pytest.raises(TypeError):
         train_model_fn([{"price": 100000}], target_column="price")
 
@@ -221,6 +231,7 @@ def test_train_model_raises_when_target_column_is_invalid(
     train_model_fn,
 ) -> None:
     """Target column name must be a non-empty string."""
+    # Keeps column lookup behavior unambiguous.
     with pytest.raises(TypeError):
         train_model_fn(train_df, target_column=None)
 
@@ -233,6 +244,7 @@ def test_train_model_raises_when_target_has_missing_values(
     train_model_fn,
 ) -> None:
     """Missing target values should fail before CV starts."""
+    # Prevents fold metrics from being computed on ill-defined labels.
     bad = train_df.copy()
     bad.loc[0, "price"] = np.nan
 
@@ -242,6 +254,7 @@ def test_train_model_raises_when_target_has_missing_values(
 
 def test_train_model_raises_when_no_feature_columns(train_model_fn) -> None:
     """Dropping target that leaves no features should raise ValueError."""
+    # Training without predictors should fail with a clear contract error.
     only_target = pd.DataFrame({"price": [100000, 120000, 130000, 140000]})
 
     with pytest.raises(ValueError):

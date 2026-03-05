@@ -58,24 +58,19 @@ def test_main_runs_with_mock_data(
     processed_csv = tmp_path / "processed" / "clean.csv"
     assert processed_csv.exists()
 
-    # Verify processed data has expected structure
     df_processed = pd.read_csv(processed_csv)
     assert len(df_processed) > 0
     assert "price" in df_processed.columns
 
-    # Check model artifact
     model_files = list((tmp_path / "models").glob("model_*.joblib"))
     assert len(model_files) == 1
 
-    # Check evaluation plots
     assert (tmp_path / "reports" / "actual_vs_predicted.png").exists()
     assert (tmp_path / "reports" / "residuals.png").exists()
 
-    # Check predictions
     prediction_files = list((tmp_path / "inference").glob("predictions_*.csv"))
     assert len(prediction_files) == 1
 
-    # Verify predictions structure
     df_predictions = pd.read_csv(prediction_files[0])
     assert "prediction" in df_predictions.columns
     assert len(df_predictions) == 50  # Should match inference sample size
@@ -88,6 +83,7 @@ def test_main_creates_all_output_directories(
     large_mock_csv: Path,
 ):
     """Verify main() creates all required output directories."""
+    # Directory creation is part of orchestration, not a caller precondition.
     monkeypatch.setattr(main_module, "RAW_DATA_PATH", large_mock_csv)
     monkeypatch.setattr(main_module, "PROCESSED_DIR", tmp_path / "processed")
     monkeypatch.setattr(main_module, "MODELS_DIR", tmp_path / "models")
@@ -96,7 +92,6 @@ def test_main_creates_all_output_directories(
 
     main_module.main()
 
-    # All directories should exist
     assert (tmp_path / "processed").is_dir()
     assert (tmp_path / "models").is_dir()
     assert (tmp_path / "reports").is_dir()
@@ -108,6 +103,7 @@ def test_main_raises_on_missing_raw_data_when_fetch_disabled(
     tmp_path: Path,
 ):
     """If data is missing and fetch is blocked, main should fail clearly."""
+    # Makes failure deterministic instead of relying on external data state.
     monkeypatch.setattr(main_module, "RAW_DATA_PATH", tmp_path / "missing.csv")
     monkeypatch.setattr(main_module, "PROCESSED_DIR", tmp_path / "processed")
     monkeypatch.setattr(main_module, "MODELS_DIR", tmp_path / "models")
@@ -116,6 +112,7 @@ def test_main_raises_on_missing_raw_data_when_fetch_disabled(
 
     # Simulate ingestion failure
     def mock_ensure_raises(*args, **kwargs):
+        # Preserves the exact exception path expected by operators.
         raise FileNotFoundError("mock missing")
 
     monkeypatch.setattr(main_module, "ensure_raw_data_exists",
@@ -143,17 +140,16 @@ def test_main_preserves_data_split_contract(
     monkeypatch.setattr(main_module, "REPORTS_DIR", tmp_path / "reports")
     monkeypatch.setattr(main_module, "INFERENCE_DIR", tmp_path / "inference")
 
+    # Captured logs are part of the observable orchestration contract.
     main_module.main()
 
-    # Capture printed output to verify split sizes
     captured = capsys.readouterr()
 
-    # Check that split information is printed (train + inference only)
+    # Verify split information is logged with K-fold CV details
     assert "Train shape:" in captured.out
     assert "Infer shape:" in captured.out
-    assert "K-fold CV" in captured.out  # Verify K-fold is mentioned
+    assert "K-fold CV" in captured.out
 
-    # Verify inference predictions count
     prediction_files = list((tmp_path / "inference").glob("predictions_*.csv"))
     df_predictions = pd.read_csv(prediction_files[0])
     assert len(df_predictions) == 50  # Inference holdout size
