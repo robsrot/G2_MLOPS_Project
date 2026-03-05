@@ -17,6 +17,7 @@ dependencies:
      - pytest-cov
      - coverage
      - pip
+     - seaborn 
      
      - pip:
                - kagglehub
