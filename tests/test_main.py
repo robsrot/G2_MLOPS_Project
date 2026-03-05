@@ -133,7 +133,7 @@ def test_main_preserves_data_split_contract(
     capsys,
 ):
     """Verify that data splitting follows the expected train/inference split.
-    
+
     Since K-fold CV is used, we only need training and inference sets.
     No separate test set is required.
     """
