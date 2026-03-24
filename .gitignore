@@ -37,6 +37,7 @@ data/**
 # Models
 # -----------------------------
 models/**
+!models/model.joblib
 !models/
 !models/.gitkeep
 
@@ -50,3 +51,10 @@ reports/**
 # Python cache
 __pycache__/
 *.pyc
+
+# Logs
+logs/
+*.log
+
+# Weights & Biases
+wandb/
