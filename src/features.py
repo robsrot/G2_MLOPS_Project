@@ -22,21 +22,15 @@ Educational Goal:
     Returns a ColumnTransformer recipe configured with
     student-specified transformations, preventing leakage by deferring
     fit to train.py.
-
-TODO: Replace print statements with standard library logging in a later session
-TODO: Any temporary or hardcoded variable or parameter will be
-imported from config.yml in a later session
 """
 
+import logging
 from typing import Optional, List
 
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
-from src.schema import BINARY_COLS, CATEGORICAL_COLS, NUMERIC_COLS
-
-
-CAT_COLS = CATEGORICAL_COLS
+logger = logging.getLogger(__name__)
 
 
 def get_feature_preprocessor(
@@ -53,7 +47,7 @@ def get_feature_preprocessor(
         numeric_cols: Columns to StandardScale.
                            Defaults to NUMERIC_COLS defined above.
         categorical_cols: Columns to OneHotEncode (drop="first").
-                           Defaults to CAT_COLS defined above.
+                           Defaults to CATEGORICAL_COLS defined above.
         binary_cols: Already 0/1 integer columns — passed through
                            unchanged (remainder="passthrough" handles them,
                            and listing them explicitly keeps
@@ -62,12 +56,11 @@ def get_feature_preprocessor(
     Outputs:
         preprocessor : sklearn ColumnTransformer (unfitted)
     """
-    print("[features] Building ColumnTransformer (unfitted)...")
+    logger.info("Building feature recipe from configuration")
 
-    # Use schema defaults unless caller intentionally overrides.
-    numeric_cols = numeric_cols or NUMERIC_COLS
-    categorical_cols = categorical_cols or CAT_COLS
-    binary_cols = binary_cols or BINARY_COLS
+    numeric_cols = numeric_cols or []
+    categorical_cols = categorical_cols or []
+    binary_cols = binary_cols or []
 
     # OneHotEncoder
     try:
@@ -92,11 +85,10 @@ def get_feature_preprocessor(
         remainder="drop",
     )
 
-    print(
-        f"[features] ColumnTransformer built.\n"
-        f"numeric: {numeric_cols}\n"
-        f"categorical: {categorical_cols}\n"
-        f"binary: {binary_cols}"
+    logger.info(
+        "ColumnTransformer built. numeric: %s | categorical: %s | binary: %s",
+        numeric_cols,
+        categorical_cols,
+        binary_cols,
     )
     return preprocessor
-

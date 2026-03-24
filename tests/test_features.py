@@ -9,6 +9,7 @@ import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.exceptions import NotFittedError
 from sklearn.preprocessing import OneHotEncoder
+from src.features import get_feature_preprocessor
 
 
 NUMERIC_COLS = ["area", "bedrooms", "bathrooms", "stories", "parking"]
@@ -22,7 +23,8 @@ BINARY_COLS = [
     "prefarea",
 ]
 
-# REQUIRED_COLUMNS should include all feature columns
+# Keep this explicit so tests fail if schema contracts drift and
+# preprocessing starts expecting a different feature surface.
 REQUIRED_COLUMNS = (
     ["price"] + NUMERIC_COLS + CATEGORICAL_COLS + BINARY_COLS
 )
@@ -37,8 +39,6 @@ schema_stub.REQUIRED_COLUMNS = REQUIRED_COLUMNS
 schema_stub.VALID_FURNISHING = VALID_FURNISHING
 sys.modules.setdefault("src.schema", schema_stub)
 
-from src.features import get_feature_preprocessor
-
 
 @pytest.fixture
 def clean_df() -> pd.DataFrame:
@@ -50,7 +50,8 @@ def clean_df() -> pd.DataFrame:
             "bathrooms": [2, 4, 2, 2],
             "stories": [3, 4, 2, 2],
             "parking": [2, 3, 2, 3],
-            "furnishingstatus": ["furnished", "semi-furnished", "unfurnished", "furnished"],
+            "furnishingstatus": [
+                "furnished", "semi-furnished", "unfurnished", "furnished"],
             "mainroad": [1, 1, 1, 1],
             "guestroom": [0, 0, 0, 0],
             "basement": [0, 0, 1, 0],
@@ -69,9 +70,14 @@ def test_get_feature_preprocessor_returns_column_transformer():
 
 def test_preprocessor_can_fit_transform(clean_df: pd.DataFrame):
     """Happy path: preprocessor fits and transforms feature matrix."""
-    # Model input excludes target.
+    # Ensures preprocessing contract matches train-time usage where the
+    # target is never part of the feature matrix.
     X = clean_df.drop(columns=["price"])
-    preprocessor = get_feature_preprocessor()
+    preprocessor = get_feature_preprocessor(
+        numeric_cols=NUMERIC_COLS,
+        categorical_cols=CATEGORICAL_COLS,
+        binary_cols=BINARY_COLS,
+    )
     transformed = preprocessor.fit_transform(X)
 
     assert transformed.shape[0] == len(X)
@@ -84,7 +90,8 @@ def test_preprocessor_transform_before_fit_raises(clean_df: pd.DataFrame):
     X = clean_df.drop(columns=["price"])
     preprocessor = get_feature_preprocessor()
 
-    # sklearn should guard against transform-before-fit usage.
+    # This protects pipeline callers from using stale/uninitialized
+    # preprocessing state, which would produce invalid features.
     with pytest.raises(NotFittedError):
         preprocessor.transform(X)
 
@@ -109,9 +116,14 @@ def test_preprocessor_fails_on_missing_required_feature(
     clean_df: pd.DataFrame,
 ):
     """Missing configured input feature should raise during fit."""
-    # Remove a required numeric feature from the design matrix.
+    # Verifies fail-fast behavior for schema drift, preventing silent model
+    # degradation when upstream data drops an expected column.
     X = clean_df.drop(columns=["price"]).drop(columns=["area"])
-    preprocessor = get_feature_preprocessor()
+    preprocessor = get_feature_preprocessor(
+        numeric_cols=NUMERIC_COLS,
+        categorical_cols=CATEGORICAL_COLS,
+        binary_cols=BINARY_COLS,
+    )
 
     with pytest.raises(ValueError):
         preprocessor.fit_transform(X)
@@ -129,7 +141,8 @@ def test_preprocessor_idempotent_transform(clean_df: pd.DataFrame):
     np.testing.assert_allclose(out1, out2)
 
 
-def test_preprocessor_ohe_backward_compatibility_branch(monkeypatch: pytest.MonkeyPatch):
+def test_preprocessor_ohe_backward_compatibility_branch(monkeypatch:
+                                                        pytest.MonkeyPatch):
     """Covers the except TypeError fallback for older sklearn APIs."""
     call_count = {"n": 0}
 
