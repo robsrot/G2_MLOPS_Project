@@ -1,10 +1,166 @@
-# MLOps Project Configuration
-# This file will eventually control paths, hyperparameters, and toggles.
+# config.yaml
+# Single source of truth for all non-secret runtime settings.
+# Secrets (WANDB_API_KEY, WANDB_ENTITY, MODEL_SOURCE, WANDB_MODEL_ALIAS) belong in .env only.
+# Code-level constants (column schemas, validation rules) stay in src/ modules.
 
+# ---------------------------------------------------------------------------
+# 1. PATHS
+# ---------------------------------------------------------------------------
+paths:
+  raw_data: "data/raw/Housing.csv"
+  processed_data: "data/processed/clean.csv"
+  model_artifact: "models/model.joblib"
+  inference_data: "data/inference/housing_inference.csv"
+  predictions_artifact: "reports/predictions.csv"
+  log_file: "logs/pipeline.log"
+
+# ---------------------------------------------------------------------------
+# 2. DATA
+# ---------------------------------------------------------------------------
 data:
-  raw: "data/raw/dataset.csv"
-  processed: "data/processed/clean.csv"
+  fetch_if_missing: true
+  use_dummy_on_failure: true
+  kaggle_dataset: "yasserh/housing-prices-dataset"
+  kaggle_filename: "Housing.csv"
+  drop_missing_rows: false
+  allow_duplicates: false
 
-train:
-  test_size: 0.2
-  seed: 42
+# ---------------------------------------------------------------------------
+# 3. LOGGING
+# ---------------------------------------------------------------------------
+logging:
+  level: "INFO"          # Valid values: DEBUG, INFO, WARNING, ERROR
+  format: "text"         # "text" for human-readable; switch to "json" for structured log ingestion
+
+# ---------------------------------------------------------------------------
+# 4. PROBLEM
+# ---------------------------------------------------------------------------
+problem:
+  type: "regression"
+  target_column: "price"
+
+# ---------------------------------------------------------------------------
+# 5. SPLIT
+# ---------------------------------------------------------------------------
+split:
+  n_folds: 5 # Number of cross-validation folds used during training
+  random_state: 42
+  shuffle: true
+
+# ---------------------------------------------------------------------------
+# 6. TRAINING
+# ---------------------------------------------------------------------------
+training:
+  regression:
+    model_type: "linear_regression"
+    random_state: 42
+    fit_intercept: true   # Whether to fit a bias term; set false only if data is already centered
+
+# ---------------------------------------------------------------------------
+# 7. FEATURES
+# ---------------------------------------------------------------------------
+features:
+  # Columns where log1p is applied before scaling to reduce right-skew (see clean_data.py)
+  log_transform_cols:
+    - "area"
+
+  # Yes/No columns encoded to 0/1 (binary). Note: schema.py defines 6 binary columns —
+  # the dataset does not contain a 7th yes/no column; furnishingstatus is OHE, not binary.
+  binary_cols:
+    - "mainroad"
+    - "guestroom"
+    - "basement"
+    - "hotwaterheating"
+    - "airconditioning"
+    - "prefarea"
+
+  # Columns passed through one-hot encoding
+  categorical_onehot:
+    - "furnishingstatus"
+
+  # Purely numeric columns passed through as-is (after optional scaling)
+  numeric_passthrough:
+    - "bedrooms"
+    - "bathrooms"
+    - "stories"
+    - "parking"
+
+  # Number of bins used for any discretization / binning steps
+  n_bins: 5
+
+  # Full ordered list of columns expected in the cleaned training DataFrame
+  required_columns:
+    - "price"
+    - "area"
+    - "bedrooms"
+    - "bathrooms"
+    - "stories"
+    - "mainroad"
+    - "guestroom"
+    - "basement"
+    - "hotwaterheating"
+    - "airconditioning"
+    - "parking"
+    - "prefarea"
+    - "furnishingstatus"
+
+  # Allowed domain values for furnishingstatus
+  valid_furnishing_values:
+    - "furnished"
+    - "semi-furnished"
+    - "unfurnished"
+
+# ---------------------------------------------------------------------------
+# 8. VALIDATION
+# ---------------------------------------------------------------------------
+validation:
+  # Columns that must never be negative after cleaning
+  numeric_non_negative_cols:
+    - "price"
+    - "area"
+    - "bedrooms"
+    - "bathrooms"
+    - "stories"
+    - "parking"
+
+# ---------------------------------------------------------------------------
+# 9. EVALUATION
+# ---------------------------------------------------------------------------
+evaluation:
+  primary_metric: "rmse"      # Root Mean Squared Error — main model selection criterion
+  secondary_metrics:
+    - "mae"      # Mean Absolute Error — same unit as price, easy to interpret
+    - "r2"       # Coefficient of determination
+    - "adj_r2"   # R² penalised for number of predictors; more honest with many features
+  save_plots: true             # Save residual / prediction plots to reports/
+  n_bins_residuals: 30
+  plot_title_suffix: "K-Fold CV"
+
+# ---------------------------------------------------------------------------
+# 10. RUN TOGGLES
+# ---------------------------------------------------------------------------
+run:
+  log_to_wandb: true       # Set false to disable all W&B logging (e.g. offline runs / CI)
+  save_predictions: true   # Persist inference output to paths.predictions_artifact
+
+# ---------------------------------------------------------------------------
+# 11. WANDB
+# ---------------------------------------------------------------------------
+wandb:
+  project: "housing-price-mlops"
+  job_type: "training-pipeline"
+  group: "linear-regression"
+  tags:
+    - "regression"
+    - "linear-regression"
+    - "housing"
+    - "v1"
+  notes: "Linear regression pipeline for housing price prediction"
+  model_artifact_name: "housing-model"          # Name used when logging the model artifact to a run
+  model_registry_name: "housing-price-predictor" # Name under which the model is registered in the W&B Model Registry
+  model_alias: "prod"                           # Alias promoted in the registry (e.g. prod, staging, champion)
+  inference_buffer_size: 50
+  log_dataset: true      # Log the processed dataset as a W&B artifact
+  log_model: true        # Log the trained model file as a W&B artifact
+  log_predictions: true  # Log inference predictions as a W&B artifact
+  log_plots: true        # Log evaluation plots (residuals, etc.) to W&B
