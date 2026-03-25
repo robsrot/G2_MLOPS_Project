@@ -232,7 +232,7 @@ def test_ensure_raw_data_exists_calls_fetch_when_missing(
     """Missing path with fetch=True should delegate to fetch function."""
     destination = tmp_path / "downloaded.csv"
 
-    def fake_fetch(path: Path) -> Path:
+    def fake_fetch(path: Path, kaggle_dataset=None, kaggle_filename=None) -> Path:
         # Returning a real file proves delegation behavior
         path.write_text("price\n123\n", encoding="utf-8")
         return path
