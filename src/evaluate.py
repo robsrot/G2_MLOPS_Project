@@ -23,17 +23,15 @@ Educational Goal:
 - Pipeline contract (inputs and outputs):
     Accepts a fitted model and test data, then returns a metric used for
     monitoring and alerting.
-
-TODO: Replace print statements with standard library logging in a later session
-TODO: Any temporary or hardcoded variable or parameter will be
-imported from config.yml in a later session
 """
 
+import logging
 from pathlib import Path
 
 import pandas as pd
 import matplotlib.pyplot as plt
 
+logger = logging.getLogger(__name__)
 
 REQUIRED_CV_KEYS = {
     "r2",
@@ -84,9 +82,10 @@ def _validate_cv_results_payload(cv_results: dict) -> None:
 
 def evaluate_model(
     cv_results: dict,
+    n_folds: int = 5,
 ) -> dict:
     """
-    Returns CV metrics and prints them.
+    Returns CV metrics and logs them.
 
     Inputs:
         cv_results: dict returned by train_model() containing:
@@ -104,14 +103,10 @@ def evaluate_model(
     mae = cv_results["mae"]
     rmse = cv_results["rmse"]
 
-    # Print metrics table
-    print(
-        "[evaluate] Model 5 CV results"
-        "(mean over 5 folds, original price scale):\n"
-        f"R² = {r2:.3f}\n"
-        f"Adjusted R² = {adj:.3f}\n"
-        f"MAE = {mae:,.0f}\n"
-        f"RMSE = {rmse:,.0f}\n"
+    logger.info(
+        "CV results (mean over %d folds, original price scale): "
+        "R²=%.3f  Adjusted R²=%.3f  MAE=%.0f  RMSE=%.0f",
+        n_folds, r2, adj, mae, rmse,
     )
 
     return {"r2": r2, "adjusted_r2": adj, "mae": mae, "rmse": rmse}
@@ -119,7 +114,10 @@ def evaluate_model(
 
 def save_evaluation_plots(
     cv_results: dict,
-    reports_dir: Path = Path("reports"),
+    reports_dir: Path = None,
+    n_folds: int = 5,
+    plot_title_suffix: str = "K-Fold CV",
+    n_bins_residuals: int = 30,
 ) -> None:
     """
     Explicitly saves evaluation plots to reports/.
@@ -127,10 +125,17 @@ def save_evaluation_plots(
     Inputs:
         cv_results: dict from train_model() with all_y_true/all_y_pred
         reports_dir: Path where PNG plots are saved (default: reports/)
+        n_folds: Number of CV folds (used in plot titles)
+        plot_title_suffix: Suffix appended to the Actual vs Predicted title
+        n_bins_residuals: Number of bins for the residuals histogram
     """
     _validate_cv_results_payload(cv_results)
 
-    reports_dir = Path(reports_dir)
+    reports_dir = (
+        Path(reports_dir)
+        if reports_dir is not None
+        else Path("reports")
+    )
     # Explicitly create reports destination for first-run friendliness.
     reports_dir.mkdir(parents=True, exist_ok=True)
 
@@ -147,12 +152,12 @@ def save_evaluation_plots(
     )
     ax.set_xlabel("Actual price")
     ax.set_ylabel("Predicted price")
-    ax.set_title("Actual vs Predicted — Model 5 K-Fold CV")
+    ax.set_title(f"Actual vs Predicted — {plot_title_suffix}")
     plt.tight_layout()
     path1 = reports_dir / "actual_vs_predicted.png"
     plt.savefig(path1, dpi=120)
     plt.close()
-    print(f"[evaluate] Plot saved → {path1}")
+    logger.info("Plot saved → %s", path1)
 
     # Plot 2: Residuals panel
     residuals = pd.Series(y_true) - pd.Series(y_pred)
@@ -167,7 +172,7 @@ def save_evaluation_plots(
 
     axes[1].hist(
         residuals,
-        bins=30,
+        bins=n_bins_residuals,
         edgecolor="black",
         color="#44489a",
         alpha=0.85,
@@ -190,4 +195,4 @@ def save_evaluation_plots(
     path2 = reports_dir / "residuals.png"
     plt.savefig(path2, dpi=120)
     plt.close()
-    print(f"[evaluate] Plot saved → {path2}")
+    logger.info("Plot saved → %s", path2)
