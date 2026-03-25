@@ -1,7 +1,6 @@
 """Basic file I/O helpers for CSV data and model artifacts.
 
 This module intentionally stays minimal:
-- no logging yet
 - straightforward read/write helpers used across pipeline stages
 Educational Goal:
 - Why this module exists in an MLOps system:
@@ -13,17 +12,16 @@ Educational Goal:
 - Pipeline contract (inputs and outputs):
     Provides reusable save/load functions that guarantee
     reproducibility and compatibility
-
-TODO: Replace print statements with standard library logging in a later session
-TODO: Any temporary or hardcoded variable or parameter will be imported from
-config.yml in a later session
 """
 
+import logging
 from pathlib import Path
 from typing import Any
 
 import joblib
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def load_csv(
@@ -59,6 +57,7 @@ def save_csv(df: pd.DataFrame, filepath: Path) -> None:
     write_options = {"index": False, "encoding": "utf-8"}
 
     df.to_csv(filepath, **write_options)
+    logger.info("CSV saved to %s", filepath)
 
 
 def save_model(model: Any, filepath: Path) -> None:
@@ -68,6 +67,7 @@ def save_model(model: Any, filepath: Path) -> None:
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
     joblib.dump(model, filepath)
+    logger.info("Model saved to %s", filepath)
 
 
 def load_model(filepath: Path) -> Any:
@@ -77,4 +77,5 @@ def load_model(filepath: Path) -> Any:
     if not filepath.exists():
         raise FileNotFoundError(f"[utils] Model file not found: {filepath}")
 
+    logger.info("Loading model from %s", filepath)
     return joblib.load(filepath)
