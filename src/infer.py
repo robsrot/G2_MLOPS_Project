@@ -13,16 +13,15 @@ Educational Goal:
 - Pipeline contract (inputs and outputs):
     Accepts a fitted Pipeline and new data, then returns predictions in
     a standardized format for downstream systems.
-
-TODO: Replace print statements with standard library logging in a later session
-TODO: Any temporary or hardcoded variable or parameter will be
-imported from config.yml in a later session
 """
 
+import logging
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def run_inference(pipeline: Any, X_infer: pd.DataFrame) -> pd.DataFrame:
@@ -54,7 +53,7 @@ def run_inference(pipeline: Any, X_infer: pd.DataFrame) -> pd.DataFrame:
     if X_infer.empty:
         raise ValueError("[infer] 'X_infer' must not be empty.")
 
-    print(f"[infer] Running inference on {len(X_infer)} rows...")
+    logger.info("Running inference on %d rows...", len(X_infer))
 
     # Model is trained on log1p(price), so predictions are on log scale.
     y_pred_log = pipeline.predict(X_infer)
@@ -67,10 +66,10 @@ def run_inference(pipeline: Any, X_infer: pd.DataFrame) -> pd.DataFrame:
         index=X_infer.index,
     )
 
-    print(
-        f"[infer] Done. Predicted price range: "
-        f"{predictions['prediction'].min():,.0f} – "
-        f"{predictions['prediction'].max():,.0f}"
+    logger.info(
+        "Done. Predicted price range: %.0f - %.0f",
+        predictions["prediction"].min(),
+        predictions["prediction"].max(),
     )
 
     return predictions

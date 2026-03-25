@@ -16,30 +16,28 @@ Educational Goal:
 - Pipeline contract (inputs and outputs):
     Returns a raw DataFrame that subsequent modules can clean and
     transform predictably.
-
-TODO: Replace print statements with standard library logging in a later session
-TODO: Any temporary or hardcoded variable or parameter will be
-imported from config.yml in a later session
 """
 
+# Standard library
+import logging
 import shutil
 from pathlib import Path
 
+# Third-party
 import pandas as pd
 
+# Local
 from src.utils import load_csv, save_csv
 
-# Canonical upstream source metadata.
-KAGGLE_DATASET = "yasserh/housing-prices-dataset"
-KAGGLE_FILENAME = "Housing.csv"
+logger = logging.getLogger(__name__)
 
 
 def _create_dummy_housing_data(raw_data_path: Path) -> pd.DataFrame:
     """Create and persist deterministic fallback data for scaffolding."""
     # Intentional loud warning so dummy usage is visible in logs.
-    print(
-        "LOUD WARNING: CREATING DUMMY DATASET FOR "
-        "SCAFFOLDING ONLY. UPDATE SETTINGS."
+    logger.warning(
+        "LOUD WARNING: CREATING DUMMY DATASET FOR SCAFFOLDING ONLY."
+        " UPDATE SETTINGS."
     )
 
     # Deterministic tiny dataset that matches the expected Housing schema.
@@ -64,14 +62,15 @@ def _create_dummy_housing_data(raw_data_path: Path) -> pd.DataFrame:
     raw_data_path = Path(raw_data_path)
     raw_data_path.parent.mkdir(parents=True, exist_ok=True)
     save_csv(dummy_data, raw_data_path)
-    print(f"[load_data] Created dummy CSV at {raw_data_path}")
-    print("=" * 80)
+    logger.info("Created dummy CSV at %s", raw_data_path)
     return dummy_data
 
 
 def fetch_raw_data_from_kaggle(
     destination: Path,
     overwrite: bool = False,
+    kaggle_dataset: str = "yasserh/housing-prices-dataset",
+    kaggle_filename: str = "Housing.csv",
 ) -> Path:
     """
     Explicitly downloads Housing.csv from Kaggle into destination.
@@ -98,13 +97,13 @@ def fetch_raw_data_from_kaggle(
     if destination.exists() and not overwrite:
         return destination
 
-    print(f"[load_data] Downloading '{KAGGLE_DATASET}' from Kaggle...")
+    logger.info("Downloading '%s' from Kaggle...", kaggle_dataset)
 
     # kagglehub.dataset_download returns the path to the local cache folder
-    cache_dir = Path(kagglehub.dataset_download(KAGGLE_DATASET))
+    cache_dir = Path(kagglehub.dataset_download(kaggle_dataset))
 
     # Find the CSV inside the downloaded folder
-    csv_candidates = sorted(cache_dir.rglob(KAGGLE_FILENAME))
+    csv_candidates = sorted(cache_dir.rglob(kaggle_filename))
     if len(csv_candidates) != 1:
         available_files = sorted(
             str(path.relative_to(cache_dir))
@@ -112,7 +111,7 @@ def fetch_raw_data_from_kaggle(
         )
         raise FileNotFoundError(
             "[load_data] Expected exactly one "
-            f"'{KAGGLE_FILENAME}' in dataset cache, found "
+            f"'{kaggle_filename}' in dataset cache, found "
             f"{len(csv_candidates)} at {cache_dir}. "
             f"Files present: {available_files}"
         )
@@ -121,13 +120,15 @@ def fetch_raw_data_from_kaggle(
     source_csv = csv_candidates[0]
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_csv, destination)
-    print(f"[load_data] Saved to {destination}")
+    logger.info("Saved to %s", destination)
     return destination
 
 
 def ensure_raw_data_exists(
     raw_data_path: Path,
     fetch_if_missing: bool = False,
+    kaggle_dataset: str = "yasserh/housing-prices-dataset",
+    kaggle_filename: str = "Housing.csv",
 ) -> Path:
     """
     Ensures the raw CSV file exists on disk.
@@ -148,12 +149,18 @@ def ensure_raw_data_exists(
         )
 
     # Explicitly fetch only when caller opted in.
-    return fetch_raw_data_from_kaggle(raw_data_path)
+    return fetch_raw_data_from_kaggle(
+        raw_data_path,
+        kaggle_dataset=kaggle_dataset,
+        kaggle_filename=kaggle_filename,
+    )
 
 
 def load_raw_data(
     raw_data_path: Path,
     use_dummy_on_failure: bool = True,
+    kaggle_dataset: str = "yasserh/housing-prices-dataset",
+    kaggle_filename: str = "Housing.csv",
 ) -> pd.DataFrame:
     """
     Loads raw CSV from disk with fail-fast file/read validation.
@@ -176,26 +183,28 @@ def load_raw_data(
             f"got directory: {raw_data_path}"
         )
 
-    print(f"[load_data] Loading from: {raw_data_path}")
+    logger.info("Loading from: %s", raw_data_path)
     try:
         # Primary path: load local CSV as-is.
         df = load_csv(raw_data_path)
     except FileNotFoundError as exc:
         # Missing local file: optionally try remote fetch before fallback.
-        print(f"[load_data] Missing file: {exc}")
+        logger.warning("Missing file: %s", exc)
         if not use_dummy_on_failure:
             raise
 
         try:
-            print(
-                "[load_data] Attempting Kaggle fetch before "
-                "dummy fallback..."
+            logger.info("Attempting Kaggle fetch before dummy fallback...")
+            ensure_raw_data_exists(
+                raw_data_path,
+                fetch_if_missing=True,
+                kaggle_dataset=kaggle_dataset,
+                kaggle_filename=kaggle_filename,
             )
-            ensure_raw_data_exists(raw_data_path, fetch_if_missing=True)
             df = load_csv(raw_data_path)
         except Exception as fetch_exc:
             # Last-resort behavior: synthesize a valid dummy dataset.
-            print(f"[load_data] Fetch/load failed: {fetch_exc}")
+            logger.warning("Fetch/load failed: %s", fetch_exc)
             return _create_dummy_housing_data(raw_data_path)
     except pd.errors.EmptyDataError as exc:
         # Empty file exists; optionally substitute deterministic fallback.
@@ -203,7 +212,7 @@ def load_raw_data(
             raise ValueError(
                 f"[load_data] CSV is empty: {raw_data_path}"
             ) from exc
-        print(f"[load_data] CSV is empty: {raw_data_path}")
+        logger.warning("CSV is empty: %s", raw_data_path)
         return _create_dummy_housing_data(raw_data_path)
     except pd.errors.ParserError as exc:
         # Corrupted CSV syntax; optionally substitute deterministic fallback.
@@ -211,13 +220,13 @@ def load_raw_data(
             raise ValueError(
                 f"[load_data] CSV parse error in file: {raw_data_path}"
             ) from exc
-        print(f"[load_data] CSV parse error in file: {raw_data_path}")
+        logger.warning("CSV parse error in file: %s", raw_data_path)
         return _create_dummy_housing_data(raw_data_path)
     except ValueError as exc:
         # Utility-level format validation failures (e.g., wrong extension).
         if not use_dummy_on_failure:
             raise
-        print(f"[load_data] Invalid CSV format: {exc}")
+        logger.warning("Invalid CSV format: %s", exc)
         return _create_dummy_housing_data(raw_data_path)
 
     # Header-only CSVs can parse but still be unusable for modeling.
@@ -226,9 +235,9 @@ def load_raw_data(
             raise ValueError(
                 f"[load_data] CSV has no data rows: {raw_data_path}"
             )
-        print(f"[load_data] CSV has no data rows: {raw_data_path}")
+        logger.warning("CSV has no data rows: %s", raw_data_path)
         return _create_dummy_housing_data(raw_data_path)
 
-    print(f"[load_data] Loaded {df.shape[0]} rows x {df.shape[1]} columns.")
-    print(f"[load_data] Columns: {df.columns.tolist()}")
+    logger.info("Loaded %d rows x %d columns.", df.shape[0], df.shape[1])
+    logger.info("Columns: %s", df.columns.tolist())
     return df

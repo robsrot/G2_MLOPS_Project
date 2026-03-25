@@ -69,7 +69,12 @@ def clean_df() -> pd.DataFrame:
 def test_validate_dataframe_passes_clean_data(clean_df: pd.DataFrame):
     """Happy path: cleaned data passes schema/domain checks."""
     # Baseline proves strict checks still accept valid production-shaped data.
-    assert validate_dataframe(clean_df, REQUIRED_COLUMNS) is True
+    assert validate_dataframe(
+        clean_df,
+        REQUIRED_COLUMNS,
+        binary_cols=BINARY_COLS,
+        valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+    ) is True
 
 
 def test_validate_dataframe_fails_on_missing_column(clean_df: pd.DataFrame):
