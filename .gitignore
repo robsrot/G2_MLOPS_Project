@@ -32,6 +32,7 @@ data/**
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/inference/.gitkeep
+!data/inference/housing_inference.csv
 
 # -----------------------------
 # Models
