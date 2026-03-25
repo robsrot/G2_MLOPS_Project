@@ -1,249 +1,347 @@
-# Housing Prices Prediction
+# Housing Price Predictor
 
-**Author:** Group 2: Tom Biefel, Kishan Dhulashia, Álvaro Perez La Rosa, Robyn Rothlin, Carlos Suarez Álvarez, and Natalia Urrea 
+A production-ready MLOps service that generates instant, data-driven price estimates for residential property listings from 12 property attributes.
 
-**Course:** MLOps: Master in Business Analytics and Data Science
-
-**Status:** Session 3 - Modularization & Production Readiness
-
----
-
-## 1. Business Objective
-Real estate agencies price new listings inconsistently. Without a formal appraisal agents rely on intuition. The same property gets different estimates depending on who handles it. Overpriced listings sit; underpriced ones close fast but leave revenue on the table.
-
-* **The Goal:** 
-  > *An automated first-pass valuation tool that generates an instant price estimate the moment a new listing is registered. Agents input 12 attributes they already collect at intake (size, layout, amenities, location indicators) and receive a data-driven reference price before any further assessment is needed.*
-
-* **The User:** 
-  > *Listing agents at a residential real estate agency. Every agent, regardless of experience, starts from the same model-generated estimate, enforcing pricing consistency across the agency.*
-
-  **Secondary User:**
-  > Sellers: Transparent, attribute-based explanation of their estimated price
-  
-  > Agency management: Auditable pricing decisions across all agents
-  
-  > Financial institutions: Independent cross-check on declared property values for collateral assessment
-
+[![MLOps Quality Gate](https://github.com/robsrot/G2_MLOPS_Project/actions/workflows/ci.yml/badge.svg)](https://github.com/robsrot/G2_MLOPS_Project/actions/workflows/ci.yml)
+[![Live on Render](https://img.shields.io/badge/API-Live%20on%20Render-brightgreen)](https://housing-price-predictor-jfz4.onrender.com/health)
 
 ---
 
-## 2. Success Metrics
-*How do we know if the project is successful?*
+## Business Objective
 
-* **Business KPI:**
-  > **Pricing turnaround**: Estimate available at listing creation - 0 wait time
+Real estate agencies price new listings inconsistently. Without a formal appraisal, agents rely on intuition — the same property receives different estimates depending on who handles it. Overpriced listings sit on the market; underpriced ones close fast but leave revenue on the table.
 
-  > **Agent pricing consistency**: All agents use the same model output as their starting point
+This service is an automated first-pass valuation tool. The moment a new listing is registered, agents input 12 attributes they already collect at intake — size, layout, amenities, location indicators — and receive a data-driven reference price before any further assessment is needed.
 
-  > **Estimation accuracy**: Predicted price within ±20% of actual sale price at the median
+**Users:** Listing agents (primary), sellers, agency management, and financial institutions seeking an independent cross-check on declared property values.
 
-  > **Coverage**: Valid estimate for 100% of listings with all 12 attributes complete
-
-    *The ±20% tolerance is grounded in the price range (1.75M–13.3M). At the median of 4.34M, ±20% = ±868,000. The achieved MAE of ~768,000 falls within this band, making predictions commercially useful as a first-pass anchor.*
-
-* **Technical Acceptance Criteria:**
-
-  | Criterion | Threshold | Result
-  | --- | --- | --- |
-  | R² | ≥ 0.65 | 0.653 |
-  | Adjusted R² | ≥ 0.64 | 0.644 |
-  |MAE | ≤ 868,000 (≤ 20% of median)| 747,580 |
-  |RMSE | — | 1,039,102 |
-  |CV stability | No single fold deviates > 5% R² from the mean | Confirmed across 5 folds |
-  |Feature validity | All 12 features contribute meaningfully| Confirmed — no zero-weight features |
-
-
-* **Deployment Condition:**
-  > *The model output is always reviewed by an agent before being communicated to a seller. It is never surfaced as a final price.*
+**Deployment condition:** Model output is always reviewed by an agent before being communicated to a seller. It is never surfaced as a final price.
 
 ---
 
-## 3. The Data
-Source: Kaggle - yasserh/housing-prices-dataset
-File: Housing.csv - 545 observations × 13 columns, no missing values
-Target: price - house sale price, range 1.75M–13.3M, median 4.34M
-PII/ Sensitive Information: None
-* **Source:** Kaggle - yasserh/housing-prices-dataset.
-* **Target Variable:** price - house sale price, range 1.75M–13.3M, median 4.34M
-* **Sensitive Info:** None
+## Success Metrics
 
+**Business KPIs:**
+- Pricing turnaround — estimate available at listing creation (0 wait time)
+- Agent consistency — every agent starts from the same model-generated reference
+- Estimation accuracy — predicted price within ±20% of actual sale price at the median
 
-| Feature      | Type          |Description        |
-|--------------------|---------------------|----------------------------------------------------------|
-| price              | Numeric (Target)    | Sale price                                               |
-| area               | Numeric             | Plot area (sq ft), log-transformed due to right skew    |
-| bedrooms           | Numeric             | Number of bedrooms                                       |
-| bathrooms          | Numeric             | Number of bathrooms                                      |
-| stories            | Numeric             | Number of floors                                         |
-| parking            | Numeric             | Number of parking spots                                  |
-| mainroad           | Binary (Yes/No)     | Property faces a main road                               |
-| guestroom          | Binary (Yes/No)     | Property includes a guest room                           |
-| basement           | Binary (Yes/No)     | Property includes a basement                             |
-| hotwaterheating    | Binary (Yes/No)     | Property has hot water heating                           |
-| airconditioning    | Binary (Yes/No)     | Property has air conditioning                            |
-| prefarea           | Binary (Yes/No)     | Property is located in a preferred area                  |
-| furnishingstatus   | Categorical         | Furnished / Semi-furnished / Unfurnished
+*At the median sale price of 4.34M, ±20% = ±868,000. The achieved MAE of 747,580 falls within this band, making predictions commercially useful as a first-pass anchor.*
+
+**Technical acceptance criteria:**
+
+| Criterion | Threshold | Result |
+|---|---|---|
+| R² | ≥ 0.65 | 0.653 |
+| Adjusted R² | ≥ 0.64 | 0.644 |
+| MAE | ≤ 868,000 (±20% of median) | 747,580 |
+| RMSE | — | 1,039,102 |
+| CV stability | No single fold deviates > 5% R² from mean | Confirmed across 5 folds |
 
 ---
 
-## 4. Repository Structure
+## Architecture Overview
 
-This project follows a strict separation between "Sandbox" (Notebooks) and "Production" (Src).
+The system is a linear pipeline from raw data to a live REST endpoint:
+
+```
+data/raw/Housing.csv → main.py → W&B (metrics + artifacts) → models/model.joblib → api.py → Render
+```
+
+**MLOps layers:**
+
+| Layer | Implementation |
+|---|---|
+| Configuration | `config.yaml` — single source of truth for all non-secret settings |
+| Secrets | `.env` — loaded at runtime via `python-dotenv`, never committed |
+| Logging | `src/logger.py` — dual `StreamHandler` + `FileHandler` output |
+| Experiment tracking | Weights & Biases — metrics, model artifacts, inference logs |
+| CI/CD | GitHub Actions — quality gate on PRs, deploy hook on Release |
+| Deployment | Render — containerised FastAPI service |
+
+**Model comparison — five models were developed; Model 5 was selected:**
+
+| Model | Approach | R² | Adj. R² |
+|---|---|---|---|
+| 1 — Baseline | Binary encoding + OHE + StandardScaler | ~0.63 | ~0.62 |
+| 2 — Log Price | + log(price) + log(area) | ~0.65 | ~0.64 |
+| 3 — Log + Lasso | + LassoCV feature selection | ~0.64 | ~0.63 |
+| 4 — Log + Outlier Removal | + IQR outlier removal on training set | ~0.65 | ~0.64 |
+| **5 — K-Fold CV** | **Model 2 preprocessing + 5-fold cross-validation** | **0.653** | **0.644** |
+
+Model 5 was selected because K-Fold CV ensures performance is not an artefact of a single favourable train/test split — the result holds across all five data partitions.
+
+---
+
+## Repository Structure
 
 ```text
-housing_prices/
-├── README.md                          # Project definition and guide
-├── environment.yml                    # Reproducible Conda environment
-├── config.yaml  
+G2_MLOPS_Project/
+├── README.md
+├── config.yaml                        # All non-secret runtime settings (60+ keys)
+├── environment.yml                    # Conda environment specification
+├── conda-lock.yml                     # Pinned Linux-64 lockfile for reproducibility
+├── Dockerfile                         # Container image for the FastAPI service
+├── .dockerignore                      # Allowlist — only src/, models/, config.yaml copied
+├── pytest.ini                         # Test discovery configuration
 │
-├── notebooks/
-│   └── HousingPricesPrediction.ipynb  # Exploratory analysis (sandbox, read-only)
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                     # Quality gate — runs on all PRs to main
+│       └── deploy.yml                 # CD — triggers on published GitHub Release
 │
-├── src/                               # Production code
+├── src/
 │   ├── __init__.py
 │   ├── main.py                        # Pipeline orchestrator (entry point)
+│   ├── logger.py                      # Root logging configuration
 │   ├── load_data.py                   # Data ingestion (local CSV or Kaggle)
-│   ├── clean_data.py                  # Data cleaning and deterministic transforms
-│   ├── schema.py                      # Schema definitions and column contracts
+│   ├── clean_data.py                  # Deterministic cleaning and encoding
 │   ├── validate.py                    # Schema, dtype, and value checks
-│   ├── features.py                    # Model-side preprocessing (scaling + encoding)
-│   ├── train.py                       # K-Fold CV training + artifact saving
+│   ├── features.py                    # Unfitted ColumnTransformer recipe
+│   ├── train.py                       # 5-fold CV training + final refit
 │   ├── evaluate.py                    # Metrics + diagnostic plots
 │   ├── infer.py                       # Inference on new data
-│   └── utils.py                       # Utility functions (save_csv, save_model)
+│   ├── api.py                         # FastAPI serving layer
+│   └── utils.py                       # File I/O helpers
 │
 ├── data/
-│   ├── raw/                           # Source data (Housing.csv)
-│   ├── processed/                     # Cleaned training input (clean.csv)
-│   └── inference/                     # Prediction outputs (predictions_<timestamp>.csv)
+│   ├── raw/                           # Housing.csv (not committed)
+│   ├── processed/                     # clean.csv (generated)
+│   └── inference/                     # housing_inference.csv
 │
 ├── models/
-│   └── model_<timestamp>.joblib
+│   └── model.joblib                   # Trained pipeline artifact
 │
-├── reports/                           # Generated outputs
+├── reports/
 │   ├── actual_vs_predicted.png
-│   └── residuals.png
+│   ├── residuals.png
+│   └── predictions.csv
+│
+├── notebooks/
+│   └── HousingPricesPrediction.ipynb  # Exploratory analysis (read-only sandbox)
+│
+├── logs/
+│   └── pipeline.log                   # Runtime log output (not committed)
 │
 └── tests/
     ├── __init__.py
+    ├── mock_data/
+    │   └── housing_small.csv
+    ├── test_api.py
     ├── test_clean_data.py
     ├── test_evaluate.py
     ├── test_features.py
     ├── test_infer.py
     ├── test_load_data.py
     ├── test_main.py
-    ├── test_schema.py
     ├── test_train.py
     ├── test_utils.py
     └── test_validate.py
-
 ```
 
-## 5. Execution Model
+---
 
-Five models were developed and compared. Model 5 (K-Fold CV) was selected as the production model.
+## Setup — Local Development
 
+**Prerequisites:** conda, Docker Desktop
 
-| Model                     | Approach                                      | R²     | Adj. R² |
-|----------------------------|----------------------------------------------|--------|---------|
-| 1 — Baseline               | Binary encoding + OHE + StandardScaler      | ~0.63  | ~0.62   |
-| 2 — Log Price              | + log(price) + log(area)                    | ~0.65  | ~0.64   |
-| 3 — Log + Lasso            | + LassoCV feature selection                 | ~0.64  | ~0.63   |
-| 4 — Log + Outlier Removal  | + IQR outlier removal on training set       | ~0.65  | ~0.64   |
-| 5 — K-Fold CV              | Model 2 preprocessing + 5-fold cross-val    | 0.653  | 0.644   |
+### 1. Clone the repository
 
-> Model 5 was selected because K-Fold CV ensures performance is not an artifact of a single favorable train/test split - the result holds across all 5 data partitions.
+```bash
+git clone https://github.com/robsrot/G2_MLOPS_Project.git
+cd G2_MLOPS_Project
+```
 
-**Data Split Strategy**
-- **Inference holdout:** 50 rows held out purely for final predictions (smoke test)
-- **Training set:** All remaining data (~495 rows), evaluated using 5-fold cross-validation
-- **Rationale:** K-fold CV eliminates the need for a separate test set by providing robust performance estimates across all data partitions. This maximizes training data while maintaining rigorous evaluation.
+### 2. Create `.env` with your secrets
 
-**Preprocessing Pipeline (applied per fold)**
-  1. Binary encoding: yes → 1, no → 0
-  2. One-hot encoding of furnishingstatus (drop first)
-  3. Log1p on area (right-skewed)
-  4. Log1p on price (right-skewed target)
-  5. StandardScaler on numeric features (fit on train fold only - no leakage)
+```bash
+# .env — never commit this file
+WANDB_API_KEY="paste_your_40_character_key_here"
+WANDB_ENTITY="paste_your_wandb_username_or_team_here"
+MODEL_SOURCE="local"
+WANDB_MODEL_ALIAS="prod"
+```
 
-## 6. Setup
+### 3. Install the environment from the lockfile
 
-  ### 1. Clone
-    git clone https://github.com/robsrot/housing_prices.git
-    cd housing_prices
+```bash
+conda-lock install -n mlops conda-lock.yml
+```
 
-  ### 2. Create environment
-    conda env create -f environment.yml
-    conda activate housing_prices_mlops
+### 4. Activate
 
-  ### 3. Add dataset (or let the pipeline download from Kaggle on first run)
-    Place `Housing.csv` in `data/raw/Housing.csv`
+```bash
+conda activate mlops
+```
 
+### 5. Add the dataset
 
-## 7. Running the Pipeline
+Download `Housing.csv` from [Kaggle — yasserh/housing-prices-dataset](https://www.kaggle.com/datasets/yasserh/housing-prices-dataset) and place it at `data/raw/Housing.csv`.
 
- Full pipeline: load → validate → train → evaluate → save
-  
-    python -m src.main
+### 6. Run the training pipeline
 
-Output after a full run:
-> data/processed/clean.csv
-models/model_<timestamp>.joblib
-reports/actual_vs_predicted.png
-reports/residuals.png
-data/inference/predictions_<timestamp>.csv
+```bash
+python -m src.main
+```
 
-## 7.1 Module Contracts (Quick Reference)
+This produces `models/model.joblib`, `data/processed/clean.csv`, `reports/actual_vs_predicted.png`, `reports/residuals.png`, and `reports/predictions.csv`. Metrics and artifacts are logged to W&B if `WANDB_API_KEY` is set and `run.log_to_wandb: true` in `config.yaml`.
 
-- `src/load_data.py`: Loads only from disk/Kaggle helper and fails fast for invalid paths and malformed files.
-- `src/clean_data.py`: Applies deterministic cleaning and encoding, then returns a clean DataFrame.
-- `src/schema.py`: Defines required columns and data contracts for validation.
-- `src/validate.py`: Enforces strict schema contract (required columns present, no unexpected columns, no invalid values).
-- `src/features.py`: Returns an unfitted preprocessing blueprint (ColumnTransformer).
-- `src/train.py`: Trains with 5-fold CV and returns a fitted pipeline plus CV metrics payload.
-- `src/evaluate.py`: Validates CV payload contracts before metric reporting and plot generation.
-- `src/infer.py`: Requires a callable `predict` pipeline and non-empty DataFrame input.
-- `src/utils.py`: Utility functions for saving CSV files and joblib models.
+---
 
+## Running the API Locally
 
-## 8. Coding Standards
-- PEP 8 - enforced via flake8
-- Type hints on all functions
-- Docstrings on all modules and functions
-- Parameters and paths are centralized in src/main.py
-- No silent failures - key modules use fail-fast exceptions with explicit messages
-- No data leakage - scalers/encoders fit on train only
+**Native (with hot reload):**
 
-  > flake8 src/ tests/        # Lint check
+```bash
+MODEL_SOURCE=local uvicorn src.api:app --reload
+```
 
-  > black src/ tests/         # Auto-format
+**Docker:**
 
-  > python -m pytest -q       # Run tests
+```bash
+docker build -t housing-api:latest .
+docker run -p 8000:8000 --env-file .env housing-api:latest
+```
 
-  > coverage run -m pytest -q
-  > coverage report -m        # Coverage report
+**Health check:**
 
-## Risks & Limitations 
+```bash
+curl http://127.0.0.1:8000/health
+```
 
-- Small dataset (545 rows): K-Fold CV reduces variance; retrain as more data accumulates
-- Single market / geography:
-Do not generalize without retraining on local data
-- No condition or location features:
-Residual 34% variance unexplained; model complements, not replaces, agent judgment
-- High-value outliers:
-Log transformation applied; predictions less reliable above ~10M
-- Data drift over time:
-Retrain periodically; monitor MAE against actual sale prices in production
+**Interactive docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-## Roadmap
+---
 
-  | Session        | Milestone                                                                 |
-  |---------------|---------------------------------------------------------------------------|
-  | 8 | Group Work 1 submission — business case + production-ready code |
-  | 9–11 | Hydra config management, MLflow experiment tracking, W&B integration |
-  | 12–14 | CI/CD via GitHub Actions; model serving via FastAPI |
+## API Usage
 
+| Environment | Base URL |
+|---|---|
+| Local | `http://127.0.0.1:8000` |
+| Live (Render) | `https://housing-price-predictor-jfz4.onrender.com` |
 
-## References 
+### GET /health
 
-- [Kaggle — Housing Prices Dataset](https://www.kaggle.com/datasets/yasserh/housing-prices-dataset)
+```bash
+curl https://housing-price-predictor-jfz4.onrender.com/health
+```
+
+```json
+{"status": "ok", "model_version": "model.joblib"}
+```
+
+Returns `503` with `{"status": "unavailable", "model_version": "none"}` if the model has not loaded.
+
+### POST /predict
+
+```bash
+curl -X POST https://housing-price-predictor-jfz4.onrender.com/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "records": [{
+      "area": 7420,
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "stories": 3,
+      "mainroad": "yes",
+      "guestroom": "no",
+      "basement": "no",
+      "hotwaterheating": "no",
+      "airconditioning": "yes",
+      "parking": 2,
+      "prefarea": "yes",
+      "furnishingstatus": "furnished"
+    }]
+  }'
+```
+
+```json
+{"predictions": [{"prediction": 6823541.25}]}
+```
+
+The endpoint accepts batches — include multiple objects in `records` to get multiple predictions in a single call. Extra fields return `422`. Missing fields return `422`.
+
+---
+
+## W&B Experiment Tracking
+
+Project: [https://wandb.ai/charliesuarez10-ie/housing-price-mlops](https://wandb.ai/charliesuarez10-ie/housing-price-mlops)
+
+Each training run logs:
+
+- **Data:** raw row count, clean row count
+- **Metrics:** CV RMSE, MAE, R², Adjusted R² (mean over 5 folds)
+- **Artifacts:** processed dataset, trained model, predictions CSV
+- **Plots:** actual vs. predicted, residuals panel
+- **API inference logs:** buffered in `src/api.py` (batch size 50) and flushed as a W&B Table
+
+To disable W&B (e.g. for local dev without credentials), set `run.log_to_wandb: false` in `config.yaml` or `WANDB_MODE=disabled` in the environment.
+
+---
+
+## CI/CD
+
+### ci.yml — Quality Gate
+
+Triggers on every pull request and push to `main`. Steps:
+
+1. Checkout repository
+2. Setup Miniconda
+3. Install exact environment from `conda-lock.yml`
+4. `pytest -q` — full test suite
+5. `docker build` — validates the container builds without errors
+
+W&B is fully disabled in CI (`WANDB_MODE=disabled`, `MODEL_SOURCE=local`). No secrets are required.
+
+[View runs →](https://github.com/robsrot/G2_MLOPS_Project/actions)
+
+### deploy.yml — Continuous Deployment
+
+Triggers only when a human explicitly publishes a GitHub Release from `main`. Sends a deploy hook to Render, which pulls the latest image and restarts the service. The `RENDER_DEPLOY_HOOK_URL` secret is set in GitHub repository settings — it is never embedded in code.
+
+---
+
+## Model Card
+
+| Field | Detail |
+|---|---|
+| **Model type** | Linear Regression — scikit-learn `Pipeline` with `ColumnTransformer` |
+| **Training data** | Kaggle Housing Prices dataset — 545 observations × 13 columns, no missing values |
+| **Target** | `price` — house sale price (range: 1.75M–13.3M, median: 4.34M) |
+| **Features** | 12 inputs: `area` (log1p + StandardScaler), `bedrooms`, `bathrooms`, `stories`, `parking` (StandardScaler); `mainroad`, `guestroom`, `basement`, `hotwaterheating`, `airconditioning`, `prefarea` (binary 0/1); `furnishingstatus` (one-hot, drop-first) |
+| **Preprocessing** | Binary encoding of yes/no columns → log1p on `area` → StandardScaler on numeric features → OneHotEncoder on `furnishingstatus`. All transforms fit on training data only (no leakage). |
+| **Evaluation** | 5-fold cross-validation: R² 0.653, Adj R² 0.644, MAE 747,580, RMSE 1,039,102 |
+| **Intended use** | First-pass automated valuation for residential listing agents. Always reviewed by a human before communicating to sellers. |
+| **Limitations** | Trained on 545 rows from a single market. Performance may degrade on properties outside the training distribution (high-value outliers above ~10M, non-residential properties, geographies not represented in the data). Not suitable for financial instruments or legal valuations. |
+
+---
+
+## Changelog
+
+### [1.0.0] — 2026-03-22
+
+#### Added
+
+- Full MLOps upgrade from Phase 1 notebook-converted pipeline
+- `config.yaml` expanded to 60+ keys across 10 sections
+- `src/logger.py` with dual `StreamHandler` + `FileHandler` output
+- W&B experiment tracking in `main.py` (metrics, artifacts, plots)
+- `src/api.py` — FastAPI serving layer with `/health` and `/predict` endpoints
+- Pydantic strict input contract (`extra="forbid"`)
+- HTTP middleware with correlation IDs and latency logging
+- Async W&B inference log buffer (batch size 50)
+- `Dockerfile` + `.dockerignore` (allowlist strategy)
+- `conda-lock.yml` for reproducible Linux-64 environment
+- `.github/workflows/ci.yml` — quality gate on all PRs
+- `.github/workflows/deploy.yml` — CD triggered by GitHub Release
+- Render deployment at <https://housing-price-predictor-jfz4.onrender.com>
+- `tests/test_api.py` — 8 API tests including 422 contract enforcement
+- `pytest.ini`, `src/__init__.py`, `tests/__init__.py`
+
+---
+
+## Authors
+
+**Group 2:** Tom Biefel, Kishan Dhulashia, Álvaro Perez La Rosa, Robyn Rothlin, Carlos Suarez Álvarez, Natalia Urrea
+
+**Course:** MLOps — IE University MsC Business Analytics & Data Science, March 2026
