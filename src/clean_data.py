@@ -22,21 +22,22 @@ Educational Goal:
 - Pipeline contract (inputs and outputs):
     Accepts raw DataFrame and returns a cleaned DataFrame ready for
     validation and feature extraction.
-
-TODO: Replace print statements with standard library logging in a later session
-TODO: Any temporary or hardcoded variable or parameter will be
-imported from config.yml in a later session
 """
+
+import logging
 
 import numpy as np
 import pandas as pd
 
-from src.schema import BINARY_COLS
+logger = logging.getLogger(__name__)
 
 
 def clean_dataframe(
     df_raw: pd.DataFrame,
+    binary_cols: list = None,
+    log_transform_cols: list = None,
     drop_missing_rows: bool = False,
+    allow_duplicates: bool = False,
 ) -> pd.DataFrame:
     """
     Cleans the raw Housing DataFrame.
@@ -45,21 +46,26 @@ def clean_dataframe(
         df_raw: Raw pd.DataFrame straight from load_data.py
         drop_missing_rows: If True, drop rows containing NaN values.
                            If False (default), fail fast with ValueError.
+        allow_duplicates: If True, skip the deduplication step.
+                          Set True for API inference batches where identical
+                          records are intentional and each must receive a
+                          prediction (default False preserves training behaviour).
     Outputs:
         df_clean: pd.DataFrame ready for schema/domain validation
                   and downstream model training
     """
-    print(f"[clean_data] Starting cleaning — shape: {df_raw.shape}")
+    logger.info("Starting cleaning — shape: %s", df_raw.shape)
 
     # Work on a copy so upstream callers keep their original frame unchanged.
     df = df_raw.copy()
 
-    # 1. Drop duplicates
-    before = len(df)
-    df = df.drop_duplicates()
-    dropped = before - len(df)
-    if dropped:
-        print(f"[clean_data] Dropped {dropped} duplicate rows.")
+    # 1. Drop duplicates (skipped for API inference batches via allow_duplicates)
+    if not allow_duplicates:
+        before = len(df)
+        df = df.drop_duplicates()
+        dropped = before - len(df)
+        if dropped:
+            logger.info("Dropped %d duplicate rows.", dropped)
 
     # 2. Missing value check
     # Compute per-column NaN counts once for reporting and branching.
@@ -73,32 +79,34 @@ def clean_dataframe(
                 "drop_missing_rows=True).\n"
                 f"{missing_nonzero}"
             )
-        print(
-            "[clean_data] WARNING — dropping rows with missing values:\n"
-            f"{missing_nonzero}"
+        logger.warning(
+            "WARNING — dropping rows with missing values:\n%s", missing_nonzero
         )
         df = df.dropna()
-        print(f"[clean_data] Rows after dropping NaNs: {len(df)}")
+        logger.info("Rows after dropping NaNs: %d", len(df))
     else:
-        print("[clean_data] No missing values found.")
+        logger.info("No missing values found.")
 
     # 3. Binary encoding: "yes" -> 1, "no" -> 0
     # Notebook cells 117 (Model 5) — applied once before fold loop
     # Encode only columns that are present to keep function schema-tolerant.
-    for col in BINARY_COLS:
+    _binary_cols = binary_cols if binary_cols is not None else []
+    for col in _binary_cols:
         if col in df.columns:
             df[col] = df[col].map({"yes": 1, "no": 0})
             # Cast to int so downstream validators can check dtype
             df[col] = df[col].astype(int)
 
-    print(f"[clean_data] Binary-encoded columns: {BINARY_COLS}")
+    logger.info("Binary-encoded columns: %s", _binary_cols)
 
-    # 4. Log-transform 'area' feature to reduce right-skewness
+    # 4. Log-transform specified features to reduce right-skewness
     # Notebook cell 118 (Model 5):
     # X_cv_5["area"] = np.log1p(X_cv_5["area"])
-    if "area" in df.columns:
-        df["area"] = np.log1p(df["area"])
-        print("[clean_data] Applied log1p transform to 'area'.")
+    _log_transform_cols = log_transform_cols if log_transform_cols is not None else []
+    for col in _log_transform_cols:
+        if col in df.columns:
+            df[col] = np.log1p(df[col])
+            logger.info("Applied log1p transform to '%s'.", col)
 
-    print(f"[clean_data] Cleaning complete — shape: {df.shape}")
+    logger.info("Cleaning complete — shape: %s", df.shape)
     return df
