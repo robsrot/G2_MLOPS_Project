@@ -73,7 +73,11 @@ def test_preprocessor_can_fit_transform(clean_df: pd.DataFrame):
     # Ensures preprocessing contract matches train-time usage where the
     # target is never part of the feature matrix.
     X = clean_df.drop(columns=["price"])
-    preprocessor = get_feature_preprocessor()
+    preprocessor = get_feature_preprocessor(
+        numeric_cols=NUMERIC_COLS,
+        categorical_cols=CATEGORICAL_COLS,
+        binary_cols=BINARY_COLS,
+    )
     transformed = preprocessor.fit_transform(X)
 
     assert transformed.shape[0] == len(X)
@@ -115,7 +119,11 @@ def test_preprocessor_fails_on_missing_required_feature(
     # Verifies fail-fast behavior for schema drift, preventing silent model
     # degradation when upstream data drops an expected column.
     X = clean_df.drop(columns=["price"]).drop(columns=["area"])
-    preprocessor = get_feature_preprocessor()
+    preprocessor = get_feature_preprocessor(
+        numeric_cols=NUMERIC_COLS,
+        categorical_cols=CATEGORICAL_COLS,
+        binary_cols=BINARY_COLS,
+    )
 
     with pytest.raises(ValueError):
         preprocessor.fit_transform(X)
