@@ -11,13 +11,13 @@ runtime inside main().
 
 import os
 
-os.environ.setdefault("WANDB_MODE", "disabled")
-
 from pathlib import Path
 
 import pandas as pd
 import pytest
 import src.main as main_module
+
+os.environ.setdefault("WANDB_MODE", "disabled")
 
 TEST_DIR = Path(__file__).resolve().parent
 MOCK_CSV_PATH = TEST_DIR / "mock_data" / "housing_small.csv"
@@ -85,7 +85,9 @@ def _make_test_config(tmp_path: Path, raw_csv: Path, infer_csv: Path) -> dict:
             "processed_data":       str(tmp_path / "processed" / "clean.csv"),
             "model_artifact":       str(tmp_path / "models" / "model.joblib"),
             "inference_data":       str(infer_csv),
-            "predictions_artifact": str(tmp_path / "reports" / "predictions.csv"),
+            "predictions_artifact": str(
+                tmp_path / "reports" / "predictions.csv"
+                ),
             "log_file":             str(tmp_path / "logs" / "pipeline.log"),
         },
         "logging": {"level": "INFO", "format": "text"},
@@ -113,9 +115,13 @@ def _make_test_config(tmp_path: Path, raw_csv: Path, infer_csv: Path) -> dict:
                 "hotwaterheating", "airconditioning", "prefarea",
             ],
             "categorical_onehot": ["furnishingstatus"],
-            "numeric_passthrough": ["bedrooms", "bathrooms", "stories", "parking"],
+            "numeric_passthrough": [
+                "bedrooms", "bathrooms", "stories", "parking"
+                ],
             "n_bins": 5,
-            "valid_furnishing_values": ["furnished", "semi-furnished", "unfurnished"],
+            "valid_furnishing_values": [
+                "furnished", "semi-furnished", "unfurnished"
+                ],
         },
         "validation": {
             "numeric_non_negative_cols": [
@@ -159,7 +165,9 @@ def test_main_runs_with_mock_data(
     monkeypatch.setattr(
         main_module,
         "_load_config",
-        lambda _path: _make_test_config(tmp_path, large_mock_csv, inference_csv),
+        lambda _path: _make_test_config(
+            tmp_path, large_mock_csv, inference_csv
+            ),
     )
 
     main_module.main()
@@ -197,7 +205,9 @@ def test_main_creates_all_output_directories(
     monkeypatch.setattr(
         main_module,
         "_load_config",
-        lambda _path: _make_test_config(tmp_path, large_mock_csv, inference_csv),
+        lambda _path: _make_test_config(
+            tmp_path, large_mock_csv, inference_csv
+        ),
     )
 
     main_module.main()
@@ -213,7 +223,8 @@ def test_main_raises_on_missing_raw_data_when_fetch_disabled(
     tmp_path: Path,
     inference_csv: Path,
 ):
-    """If load_raw_data raises, main() propagates the error without swallowing it.
+    """
+    If load_raw_data raises, main() propagates the error without swallowing it.
 
     In the new pipeline load_raw_data() is the ingestion entry point;
     ensure_raw_data_exists() is no longer called from main(). We patch
@@ -252,7 +263,9 @@ def test_main_preserves_data_split_contract(
     monkeypatch.setattr(
         main_module,
         "_load_config",
-        lambda _path: _make_test_config(tmp_path, large_mock_csv, inference_csv),
+        lambda _path: _make_test_config(
+            tmp_path, large_mock_csv, inference_csv
+            ),
     )
 
     main_module.main()

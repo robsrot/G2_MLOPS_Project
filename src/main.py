@@ -177,6 +177,7 @@ def main() -> None:
     required_columns = [target_column] + feature_cols
     binary_cols = features_cfg.get("binary_cols", [])
     valid_furnishing_values = features_cfg.get("valid_furnishing_values", [])
+    non_negative_cols = validation_cfg.get("numeric_non_negative_cols", [])
 
     # 8. Initialise W&B run
     wandb_run = None
@@ -206,7 +207,8 @@ def main() -> None:
         # ------------------------------------------------------------------
         fetch_if_missing = data_cfg.get("fetch_if_missing", True)
         use_dummy_on_failure = data_cfg.get("use_dummy_on_failure", True)
-        kaggle_dataset = data_cfg.get("kaggle_dataset", "yasserh/housing-prices-dataset")
+        kaggle_dataset = data_cfg.get(
+            "kaggle_dataset", "yasserh/housing-prices-dataset")
         kaggle_filename = data_cfg.get("kaggle_filename", "Housing.csv")
         ensure_raw_data_exists(
             raw_data_path,
@@ -260,6 +262,7 @@ def main() -> None:
             required_columns=required_columns,
             binary_cols=binary_cols,
             valid_furnishing_values=valid_furnishing_values,
+            non_negative_cols=non_negative_cols,
         )
 
         # ------------------------------------------------------------------
@@ -291,7 +294,8 @@ def main() -> None:
         n_folds = split_cfg.get("n_folds", 5)
         random_state = split_cfg.get("random_state", 42)
         shuffle = split_cfg.get("shuffle", True)
-        fit_intercept = training_cfg.get("regression", {}).get("fit_intercept", True)
+        fit_intercept = training_cfg.get(
+            "regression", {}).get("fit_intercept", True)
         numeric_cols = features_cfg.get("numeric_passthrough", [])
         categorical_cols = features_cfg.get("categorical_onehot", [])
         model_pipeline, cv_results = train_model(
@@ -307,7 +311,8 @@ def main() -> None:
         # 15. EVALUATE
         # ------------------------------------------------------------------
         n_bins_residuals = evaluation_cfg.get("n_bins_residuals", 30)
-        plot_title_suffix = evaluation_cfg.get("plot_title_suffix", "K-Fold CV")
+        plot_title_suffix = evaluation_cfg.get(
+            "plot_title_suffix", "K-Fold CV")
         metrics = evaluate_model(cv_results, n_folds=n_folds)
         logger.info("CV metrics: %s", metrics)
 
@@ -382,6 +387,7 @@ def main() -> None:
             required_columns=feature_cols,
             binary_cols=binary_cols,
             valid_furnishing_values=valid_furnishing_values,
+            non_negative_cols=non_negative_cols,
         )
 
         df_predictions = run_inference(

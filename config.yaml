@@ -80,6 +80,7 @@ features:
 
   # Purely numeric columns passed through as-is (after optional scaling)
   numeric_passthrough:
+    - "area"
     - "bedrooms"
     - "bathrooms"
     - "stories"

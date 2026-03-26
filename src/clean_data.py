@@ -49,7 +49,8 @@ def clean_dataframe(
         allow_duplicates: If True, skip the deduplication step.
                           Set True for API inference batches where identical
                           records are intentional and each must receive a
-                          prediction (default False preserves training behaviour).
+                          prediction (default False preserves training
+                          behaviour).
     Outputs:
         df_clean: pd.DataFrame ready for schema/domain validation
                   and downstream model training
@@ -59,7 +60,8 @@ def clean_dataframe(
     # Work on a copy so upstream callers keep their original frame unchanged.
     df = df_raw.copy()
 
-    # 1. Drop duplicates (skipped for API inference batches via allow_duplicates)
+    # 1. Drop duplicates
+    # (skipped for API inference batches via allow_duplicates)
     if not allow_duplicates:
         before = len(df)
         df = df.drop_duplicates()
@@ -102,7 +104,9 @@ def clean_dataframe(
     # 4. Log-transform specified features to reduce right-skewness
     # Notebook cell 118 (Model 5):
     # X_cv_5["area"] = np.log1p(X_cv_5["area"])
-    _log_transform_cols = log_transform_cols if log_transform_cols is not None else []
+    _log_transform_cols = (
+        log_transform_cols if log_transform_cols is not None else []
+    )
     for col in _log_transform_cols:
         if col in df.columns:
             df[col] = np.log1p(df[col])

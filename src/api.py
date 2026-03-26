@@ -63,14 +63,14 @@ class HousingRecord(BaseModel):
     bedrooms: int
     bathrooms: int
     stories: int
-    mainroad: str              # "yes" or "no"
-    guestroom: str             # "yes" or "no"
-    basement: str              # "yes" or "no"
-    hotwaterheating: str       # "yes" or "no"
-    airconditioning: str       # "yes" or "no"
+    mainroad: str          # "yes" or "no"
+    guestroom: str         # "yes" or "no"
+    basement: str          # "yes" or "no"
+    hotwaterheating: str   # "yes" or "no"
+    airconditioning: str   # "yes" or "no"
     parking: int
-    prefarea: str              # "yes" or "no"
-    furnishingstatus: str      # "furnished", "semi-furnished", or "unfurnished"
+    prefarea: str          # "yes" or "no"
+    furnishingstatus: str  # "furnished", "semi-furnished", or "unfurnished"
 
 
 class PredictRequest(BaseModel):
@@ -114,7 +114,9 @@ def _load_config() -> dict:
     with config_path.open("r", encoding="utf-8") as fh:
         cfg = yaml.safe_load(fh)
     if not isinstance(cfg, dict):
-        raise ValueError(f"config.yaml must be a YAML mapping, got: {type(cfg)}")
+        raise ValueError(
+            f"config.yaml must be a YAML mapping, got: {type(cfg)}"
+        )
     return cfg
 
 
@@ -180,15 +182,17 @@ async def lifespan(app: FastAPI):
     app.state.feature_cols = feature_cols
     app.state.binary_cols = features_cfg.get("binary_cols", [])
     app.state.log_transform_cols = features_cfg.get("log_transform_cols", [])
-    app.state.valid_furnishing_values = features_cfg.get("valid_furnishing_values", [])
-    app.state.batch_size = cfg.get("wandb", {}).get("inference_buffer_size", 50)
+    app.state.valid_furnishing_values = features_cfg.get(
+        "valid_furnishing_values", [])
+    app.state.batch_size = cfg.get("wandb", {}).get(
+        "inference_buffer_size", 50)
 
     model_source = os.getenv("MODEL_SOURCE", "local")
 
     if model_source == "wandb":
         # Download the registered model artifact from W&B Model Registry
-        entity       = os.getenv("WANDB_ENTITY", "")
-        alias        = os.getenv("WANDB_MODEL_ALIAS", "prod")
+        entity = os.getenv("WANDB_ENTITY", "")
+        alias = os.getenv("WANDB_MODEL_ALIAS", "prod")
         registry_name = cfg.get("wandb", {}).get(
             "model_registry_name", "housing-price-predictor"
         )
@@ -210,14 +214,15 @@ async def lifespan(app: FastAPI):
         joblib_candidates = sorted(artifact_dir.rglob("*.joblib"))
         if not joblib_candidates:
             raise FileNotFoundError(
-                f"No .joblib file found in downloaded artifact at {artifact_dir}"
+                f"No .joblib file found at {artifact_dir}"
             )
         model_path = joblib_candidates[0]
         app.state.model_version = alias
 
     else:
         # Default: load from local disk path specified in config
-        model_path_str = cfg.get("paths", {}).get("model_artifact", "models/model.joblib")
+        model_path_str = cfg.get("paths", {}).get(
+            "model_artifact", "models/model.joblib")
         model_path = PROJECT_ROOT / model_path_str
         app.state.model_version = model_path.name
         logger.info("MODEL_SOURCE=local — loading from %s", model_path)
@@ -334,7 +339,9 @@ async def predict(
     feature_cols: list[str] = request.app.state.feature_cols
     binary_cols: list[str] = request.app.state.binary_cols
     log_transform_cols: list[str] = request.app.state.log_transform_cols
-    valid_furnishing_values: list[str] = request.app.state.valid_furnishing_values
+    valid_furnishing_values: list[str] = (
+        request.app.state.valid_furnishing_values
+    )
 
     # 1. Convert Pydantic records to raw DataFrame (pre-cleaning format)
     df_raw = pd.DataFrame([r.model_dump() for r in body.records])
@@ -389,7 +396,8 @@ async def predict(
             _inference_buffer.clear()
 
     if rows_to_flush:
-        background_tasks.add_task(_flush_inference_buffer_to_wandb, rows_to_flush)
+        background_tasks.add_task(
+            _flush_inference_buffer_to_wandb, rows_to_flush)
 
     return PredictResponse(
         predictions=[PredictionItem(prediction=p) for p in predictions]
