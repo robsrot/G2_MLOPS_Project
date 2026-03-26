@@ -200,7 +200,7 @@ async def lifespan(app: FastAPI):
 
         api_client = wandb.Api()
         artifact = api_client.artifact(
-            f"{entity}/model-registry/{registry_name}:{alias}"
+            f"{entity}/housing-price-mlops/housing-model:{alias}"
         )
         artifact_dir = Path(
             artifact.download(root=str(PROJECT_ROOT / "models"))
