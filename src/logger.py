@@ -19,7 +19,9 @@ def configure_logging(*, log_level: str, log_file: Path) -> None:
         log_file:  Path where log lines are appended
         (file is created if absent).
     """
-    numeric_level = getattr(logging, (log_level or "INFO").upper(), logging.INFO)
+    numeric_level = getattr(
+        logging, (log_level or "INFO").upper(), logging.INFO
+        )
 
     # Ensure the log directory exists before opening the FileHandler.
     Path(log_file).parent.mkdir(parents=True, exist_ok=True)

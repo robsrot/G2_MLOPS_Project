@@ -28,6 +28,7 @@ def validate_dataframe(
     required_columns: list[str],
     binary_cols: list = None,
     valid_furnishing_values: list = None,
+    non_negative_cols: list = None,
     target_column: str = None,
 ) -> bool:
     """
@@ -99,7 +100,18 @@ def validate_dataframe(
                 "non-positive values."
             )
 
-    # 7. Binary columns must be 0 or 1
+    # 4b. Config-driven non-negative checks for numeric columns
+    _non_negative_cols = (
+        non_negative_cols if non_negative_cols is not None else []
+    )
+    for col in _non_negative_cols:
+        if col in df.columns and (df[col] < 0).any():
+            raise ValueError(
+                f"[validate] Column '{col}' contains negative values."
+            )
+
+    # 5. Binary columns must be 0 or 1
+    # Binary domain constraints prevent silent encoding mistakes.
     _binary_cols = binary_cols if binary_cols is not None else []
     for col in _binary_cols:
         if col in df.columns:
@@ -112,8 +124,10 @@ def validate_dataframe(
 
     # 8. furnishingstatus domain check
     if "furnishingstatus" in df.columns:
-        _valid = set(valid_furnishing_values) if valid_furnishing_values else set()
-        unknown = set(df["furnishingstatus"].unique()) - _valid
+        _valid_furnishing = set(
+            valid_furnishing_values
+            ) if valid_furnishing_values is not None else set()
+        unknown = set(df["furnishingstatus"].unique()) - _valid_furnishing
         if unknown:
             raise ValueError(
                 f"[validate] Unknown furnishingstatus values: {unknown}. "

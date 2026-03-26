@@ -12,16 +12,16 @@ Environment flags set BEFORE the app import so the lifespan reads them:
 # Standard library
 import os
 
-# Environment must be set before app import so lifespan picks them up
-os.environ.setdefault("MODEL_SOURCE", "local")
-os.environ.setdefault("WANDB_MODE", "disabled")
-
 # Third-party
 import pytest
 from starlette.testclient import TestClient
 
 # Local
 from src.api import app
+
+# Environment must be set before app import so lifespan picks them up
+os.environ.setdefault("MODEL_SOURCE", "local")
+os.environ.setdefault("WANDB_MODE", "disabled")
 
 # ---------------------------------------------------------------------------
 # Valid payload constant — field names must match HousingRecord exactly
@@ -64,7 +64,8 @@ def client():
             yield c
     except Exception as exc:
         pytest.skip(
-            f"Could not start API — model file missing or lifespan failed: {exc}"
+            f"Could not start API — "
+            f"model file missing or lifespan failed: {exc}"
         )
 
 
@@ -111,7 +112,9 @@ def test_health_200_has_model_version(client):
 
 
 def test_predict_valid_payload_returns_200(client):
-    """POST /predict with a valid record returns 200 with a positive prediction."""
+    """
+    POST /predict with a valid record returns 200 with a positive prediction.
+    """
     response = client.post("/predict", json=VALID_PAYLOAD)
 
     assert response.status_code == 200
