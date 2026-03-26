@@ -33,14 +33,16 @@ data/**
 !data/processed/.gitkeep
 !data/inference/.gitkeep
 !data/inference/housing_inference.csv
+data/inference/predictions_*.csv
 
 # -----------------------------
 # Models
 # -----------------------------
 models/**
-!models/model.joblib
 !models/
 !models/.gitkeep
+!models/model.joblib
+models/model_*.joblib
 
 # -----------------------------
 # Reports

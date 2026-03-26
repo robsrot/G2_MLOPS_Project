@@ -33,6 +33,7 @@ import logging
 import numpy as np
 import pandas as pd
 from sklearn import metrics
+from sklearn.base import clone
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
@@ -45,6 +46,7 @@ logger = logging.getLogger(__name__)
 def train_model(
     df: pd.DataFrame,
     target_column: str,
+    preprocessor=None,            # ← add this
     n_folds: int = 5,
     random_state: int = 42,
     shuffle: bool = True,
@@ -132,13 +134,20 @@ def train_model(
         y_fold_train = y.iloc[train_idx]
         y_fold_test = y.iloc[test_idx]
 
-        # Fresh preprocessor per fold - fit ONLY on fold-train (no leakage)
-        fold_pipeline = Pipeline([
-            ("preprocess", get_feature_preprocessor(
+        # Use sklearn.base.clone() to deep-copy the unfitted preprocessor for
+        # each fold — this is the idiomatic sklearn way to reset an estimator
+        # to its unfitted state without re-instantiating it from scratch.
+        _fold_preprocessor = (
+            get_feature_preprocessor(
                 numeric_cols=numeric_cols,
                 categorical_cols=categorical_cols,
                 binary_cols=binary_cols,
-            )),
+            )
+            if preprocessor is None
+            else clone(preprocessor)
+        )
+        fold_pipeline = Pipeline([
+            ("preprocess", _fold_preprocessor),
             ("model", LinearRegression(fit_intercept=fit_intercept)),
         ])
 
@@ -174,12 +183,19 @@ def train_model(
     # strong as possible. This is the Pipeline that gets saved to disk.
     logger.info("Refitting final Pipeline on ALL rows...")
 
-    final_pipeline = Pipeline([
-        ("preprocess", get_feature_preprocessor(
+    # For the final refit we use the passed-in preprocessor directly (no clone
+    # needed here — this is the one that gets saved into the Pipeline artifact).
+    _final_preprocessor = (
+        get_feature_preprocessor(
             numeric_cols=numeric_cols,
             categorical_cols=categorical_cols,
             binary_cols=binary_cols,
-        )),
+        )
+        if preprocessor is None
+        else preprocessor
+    )
+    final_pipeline = Pipeline([
+        ("preprocess", _final_preprocessor),
         ("model", LinearRegression(fit_intercept=fit_intercept)),
     ])
     final_pipeline.fit(X, np.log1p(y))

@@ -82,7 +82,11 @@ def test_validate_dataframe_fails_on_missing_column(clean_df: pd.DataFrame):
     # Missing core fields should stop the pipeline before training/inference.
     bad = clean_df.drop(columns=["price"])
     with pytest.raises(ValueError):
-        validate_dataframe(bad, REQUIRED_COLUMNS)
+        validate_dataframe(
+            bad, REQUIRED_COLUMNS,
+            binary_cols=BINARY_COLS,
+            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+        )
 
 
 def test_validate_dataframe_fails_on_invalid_binary(clean_df: pd.DataFrame):
@@ -91,7 +95,11 @@ def test_validate_dataframe_fails_on_invalid_binary(clean_df: pd.DataFrame):
     # Single out-of-domain value is enough to reject the row set.
     bad.loc[0, "mainroad"] = 2
     with pytest.raises(ValueError):
-        validate_dataframe(bad, REQUIRED_COLUMNS)
+        validate_dataframe(
+            bad, REQUIRED_COLUMNS,
+            binary_cols=BINARY_COLS,
+            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+        )
 
 
 def test_validate_dataframe_fails_on_invalid_category(clean_df: pd.DataFrame):
@@ -100,7 +108,11 @@ def test_validate_dataframe_fails_on_invalid_category(clean_df: pd.DataFrame):
     # Guards against category drift at inference time.
     bad.loc[0, "furnishingstatus"] = "unknown"
     with pytest.raises(ValueError):
-        validate_dataframe(bad, REQUIRED_COLUMNS)
+        validate_dataframe(
+            bad, REQUIRED_COLUMNS,
+            binary_cols=BINARY_COLS,
+            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+        )
 
 
 def test_validate_dataframe_fails_on_non_positive_price(
@@ -112,7 +124,11 @@ def test_validate_dataframe_fails_on_non_positive_price(
     bad.loc[0, "price"] = 0
 
     with pytest.raises(ValueError):
-        validate_dataframe(bad, REQUIRED_COLUMNS)
+        validate_dataframe(
+            bad, REQUIRED_COLUMNS,
+            binary_cols=BINARY_COLS,
+            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+        )
 
 
 def test_validate_dataframe_fails_on_nan_after_clean(clean_df: pd.DataFrame):
@@ -122,7 +138,11 @@ def test_validate_dataframe_fails_on_nan_after_clean(clean_df: pd.DataFrame):
     bad.loc[0, "area"] = pd.NA
 
     with pytest.raises(ValueError):
-        validate_dataframe(bad, REQUIRED_COLUMNS)
+        validate_dataframe(
+            bad, REQUIRED_COLUMNS,
+            binary_cols=BINARY_COLS,
+            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+        )
 
 
 def test_validate_dataframe_fails_on_unexpected_column(
@@ -134,4 +154,33 @@ def test_validate_dataframe_fails_on_unexpected_column(
     bad["unexpected_feature"] = 1
 
     with pytest.raises(ValueError):
-        validate_dataframe(bad, REQUIRED_COLUMNS)
+        validate_dataframe(
+            bad, REQUIRED_COLUMNS,
+            binary_cols=BINARY_COLS,
+            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+        )
+
+
+def test_validate_dataframe_fails_on_none_input():
+    """Passing None instead of a DataFrame must raise TypeError."""
+    with pytest.raises(TypeError):
+        validate_dataframe(None, REQUIRED_COLUMNS)
+
+
+def test_validate_dataframe_fails_on_wrong_type():
+    """Passing a list instead of a DataFrame must raise TypeError."""
+    with pytest.raises(TypeError):
+        validate_dataframe([1, 2, 3], REQUIRED_COLUMNS)
+
+
+def test_validate_dataframe_fails_on_non_numeric_column(clean_df: pd.DataFrame):
+    """A column that should be numeric but contains strings must raise TypeError."""
+    bad = clean_df.copy()
+    bad["area"] = "not_a_number"
+    with pytest.raises((TypeError, ValueError)):
+        validate_dataframe(
+            bad,
+            REQUIRED_COLUMNS,
+            binary_cols=BINARY_COLS,
+            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+        )

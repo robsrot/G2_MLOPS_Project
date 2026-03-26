@@ -145,6 +145,24 @@ G2_MLOPS_Project/
 
 **Prerequisites:** conda, Docker Desktop
 
+> **⚠️ Required before running: add the dataset**
+>
+> This project uses the [Kaggle Housing Prices dataset](https://www.kaggle.com/datasets/yasserh/housing-prices-dataset).
+> You must download it and place it at the exact path below before running anything:
+>
+> ```
+> data/raw/Housing.csv
+> ```
+>
+> Quick setup:
+> ```bash
+> mkdir -p data/raw
+> mv ~/Downloads/Housing.csv data/raw/Housing.csv
+> ```
+>
+> The file must be named exactly `Housing.csv` (capital H). The pipeline will
+> fail fast with a clear error if it is missing.
+
 ### 1. Clone the repository
 
 ```bash
@@ -174,9 +192,17 @@ conda-lock install -n mlops conda-lock.yml
 conda activate mlops
 ```
 
-### 5. Add the dataset
+### 5. Add the dataset (see callout above)
 
-Download `Housing.csv` from [Kaggle — yasserh/housing-prices-dataset](https://www.kaggle.com/datasets/yasserh/housing-prices-dataset) and place it at `data/raw/Housing.csv`.
+If you have not already done so, save `Housing.csv` to `data/raw/Housing.csv`:
+
+```bash
+mkdir -p data/raw
+mv ~/Downloads/Housing.csv data/raw/Housing.csv
+```
+
+The filename is case-sensitive. The `.gitignore` intentionally excludes this
+file from version control.
 
 ### 6. Run the training pipeline
 
