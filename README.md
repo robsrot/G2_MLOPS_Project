@@ -83,13 +83,13 @@ data/raw/Housing.csv → main.py → W&B (metrics + artifacts) → models/model.
 
 **Model comparison — five models were developed; Model 5 was selected:**
 
-| Model | Approach | R² | Adj. R² |
-|---|---|---|---|
-| 1 — Baseline | Binary encoding + OHE + StandardScaler | ~0.63 | ~0.62 |
-| 2 — Log Price | + log(price) + log(area) | ~0.65 | ~0.64 |
-| 3 — Log + Lasso | + LassoCV feature selection | ~0.64 | ~0.63 |
-| 4 — Log + Outlier Removal | + IQR outlier removal on training set | ~0.65 | ~0.64 |
-| **5 — K-Fold CV** | **Model 2 preprocessing + 5-fold cross-validation** | **0.653** | **0.644** |
+| Model | Approach | R² | Adj. R² | MAE | RMSE | Features Used |
+|---|---|---|---|---|---|---|
+| 1 — Baseline | Binary encoding + OHE + StandardScaler | 0.65 | 0.61 | 9.70e+05 | 1.32e+06 | 13 |
+| 2 — Log Price | + log(price) + log(area) | 0.66 | 0.61 | 9.70e+05 | 1.31e+06 | 13 |
+| 3 — Log + Lasso | + LassoCV feature selection | 0.63 | 0.60 | 1.00e+06 | 1.36e+06 | 10 |
+| 4 — Log + Outlier Removal | + IQR outlier removal on training set | 0.65 | 0.61 | 9.75e+05 | 1.32e+06 | 13 |
+| **5 — K-Fold CV** | **Model 2 preprocessing + 5-fold cross-validation** | **0.66** | **0.65** | **7.68e+05** | **1.05e+06** | **13** |
 
 Model 5 was selected because K-Fold CV ensures performance is not an artefact of a single favourable train/test split — the result holds across all five data partitions.
 
