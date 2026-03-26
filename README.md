@@ -278,7 +278,7 @@ curl -X POST https://g2-mlops-project.onrender.com/predict \
 ```
 
 ```json
-{"predictions": [{"prediction": 6823541.25}]}
+{"predictions": [{"prediction": 8477932.149443712}]}
 ```
 
 The endpoint accepts batches — include multiple objects in `records` to get multiple predictions in a single call. Extra fields return `422`. Missing fields return `422`.
