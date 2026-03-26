@@ -117,7 +117,7 @@ def validate_dataframe(
         if unknown:
             raise ValueError(
                 f"[validate] Unknown furnishingstatus values: {unknown}. "
-                f"Expected: {_valid}"
+                f"Expected: {_valid_furnishing}"
             )
 
     logger.info(
