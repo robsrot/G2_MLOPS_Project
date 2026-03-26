@@ -18,6 +18,12 @@ dependencies:
      - coverage
      - pip
      - seaborn 
+     - wandb
+     - uvicorn
+     - fastapi
+     - conda-lock
      
      - pip:
                - kagglehub
+               - python-dotenv
+               - httpx

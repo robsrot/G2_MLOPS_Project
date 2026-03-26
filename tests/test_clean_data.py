@@ -47,7 +47,11 @@ def test_clean_dataframe_transforms_area_and_binaries(
     raw_df: pd.DataFrame,
 ):
     """Happy path: area is log-transformed and binary cols map to {0,1}."""
-    df_clean = clean_dataframe(raw_df)
+    df_clean = clean_dataframe(
+        raw_df,
+        binary_cols=BINARY_COLS,
+        log_transform_cols=["area"],
+    )
 
     # Guard against silent preprocessing drift that would break train/serve
     # consistency with the notebook/model assumptions.

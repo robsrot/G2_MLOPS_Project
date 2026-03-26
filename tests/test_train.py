@@ -14,9 +14,15 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
-def _get_feature_preprocessor() -> ColumnTransformer:
+def _get_feature_preprocessor(
+    numeric_cols=None,
+    categorical_cols=None,
+    binary_cols=None,
+) -> ColumnTransformer:
     # Keeps test preprocessing aligned with training feature expectations.
-    numeric_columns = [
+    # Accepts the new keyword parameters but falls back to hardcoded columns
+    # for test isolation from config drift.
+    numeric_columns = numeric_cols or [
         "area",
         "bedrooms",
         "bathrooms",
@@ -29,7 +35,7 @@ def _get_feature_preprocessor() -> ColumnTransformer:
         "airconditioning",
         "prefarea",
     ]
-    categorical_columns = ["furnishingstatus"]
+    categorical_columns = categorical_cols or ["furnishingstatus"]
 
     return ColumnTransformer(
         transformers=[
@@ -114,7 +120,14 @@ def test_train_model_returns_pipeline_and_cv_results(
     train_model_fn,
 ):
     """train_model returns a fitted Pipeline and full CV result payload."""
-    pipeline, cv_results = train_model_fn(train_df, target_column="price")
+    pipeline, cv_results = train_model_fn(
+        train_df,
+        target_column="price",
+        numeric_cols=["area", "bedrooms", "bathrooms", "stories", "parking"],
+        categorical_cols=["furnishingstatus"],
+        binary_cols=["mainroad", "guestroom", "basement",
+                     "hotwaterheating", "airconditioning", "prefarea"],
+    )
 
     assert isinstance(pipeline, Pipeline)
     assert {
@@ -142,7 +155,14 @@ def test_trained_pipeline_predicts_log_prices(
     train_model_fn,
 ):
     """Returned pipeline can predict on feature-only frame."""
-    pipeline, _ = train_model_fn(train_df, target_column="price")
+    pipeline, _ = train_model_fn(
+        train_df,
+        target_column="price",
+        numeric_cols=["area", "bedrooms", "bathrooms", "stories", "parking"],
+        categorical_cols=["furnishingstatus"],
+        binary_cols=["mainroad", "guestroom", "basement",
+                     "hotwaterheating", "airconditioning", "prefarea"],
+    )
     # Ensures inference path works when target is absent, as in production.
     X = train_df.drop(columns=["price"]).head(3)
 
@@ -167,7 +187,14 @@ def test_train_model_model_roundtrip(
     train_model_fn,
 ):
     """Saved and reloaded trained pipeline remains usable for inference."""
-    pipeline, _ = train_model_fn(train_df, target_column="price")
+    pipeline, _ = train_model_fn(
+        train_df,
+        target_column="price",
+        numeric_cols=["area", "bedrooms", "bathrooms", "stories", "parking"],
+        categorical_cols=["furnishingstatus"],
+        binary_cols=["mainroad", "guestroom", "basement",
+                     "hotwaterheating", "airconditioning", "prefarea"],
+    )
 
     model_path = tmp_path / "pipeline.joblib"
     joblib.dump(pipeline, model_path)

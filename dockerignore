@@ -1,0 +1,24 @@
+# Deny everything by default
+**
+
+# Allow only what the container needs to run
+!Dockerfile
+!.dockerignore
+!conda-lock.yml
+!config.yaml
+!src/
+!models/
+
+# Explicitly block secrets and dev artifacts even if matched above
+.env
+wandb/
+logs/
+.git/
+.github/
+tests/
+notebooks/
+data/
+reports/
+__pycache__/
+**/*.pyc
+**/.DS_Store

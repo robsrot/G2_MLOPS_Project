@@ -9,7 +9,7 @@ Model 5:
   - Inside every fold: OHE + StandardScaler fit on fold-train only (no leakage)
     - Fits LinearRegression on log1p(price), predicts,
         then applies expm1 to score
-  - Reports mean metrics across all 5 folds
+  - Reports mean metrics across all folds
     - Finally refits on all rows so the saved model has seen every data point
 
 Input: Full cleaned DataFrame
@@ -26,11 +26,9 @@ Educational Goal:
 - Pipeline contract (inputs and outputs):
     Accepts training data and an unfitted preprocessor, then returns a
     fitted Pipeline ready for deployment.
-
-TODO: Replace print statements with standard library logging in a later session
-TODO: Any temporary or hardcoded variable or parameter will be
-imported from config.yml in a later session
 """
+
+import logging
 
 import numpy as np
 import pandas as pd
@@ -41,13 +39,23 @@ from sklearn.pipeline import Pipeline
 
 from src.features import get_feature_preprocessor
 
+logger = logging.getLogger(__name__)
+
 
 def train_model(
     df: pd.DataFrame,
     target_column: str,
+    n_folds: int = 5,
+    random_state: int = 42,
+    shuffle: bool = True,
+    fit_intercept: bool = True,
+    numeric_cols: list = None,
+    categorical_cols: list = None,
+    binary_cols: list = None,
 ) -> tuple:
     """
-    Runs 5-fold CV on the full dataset (Model 5), then refits on all rows.
+    Runs n_folds-fold CV on the full dataset (Model 5),
+    then refits on all rows.
 
     Inputs:
         df: Full cleaned pd.DataFrame from clean_data.py.
@@ -64,12 +72,11 @@ def train_model(
                         pipeline.predict() returns log(price).
                         Apply np.expm1() in infer.py to recover price scale.
         cv_results: dict with keys r2, adjusted_r2, mae, rmse
-                        (mean across 5 folds, on original price scale)
+                        (mean across n_folds folds, on original price scale)
                         These are the numbers comparable to the notebook.
     """
-    print(
-        "[train] Model 5: K-Fold CV on full dataset "
-        "+ final refit on all rows"
+    logger.info(
+        "Model 5: K-Fold CV on full dataset + final refit on all rows"
     )
 
     if not isinstance(df, pd.DataFrame):
@@ -86,9 +93,10 @@ def train_model(
             f"[train] Target column '{target_column}' not found in DataFrame."
         )
 
-    if len(df) < 5:
+    if len(df) < n_folds:
         raise ValueError(
-            "[train] At least 5 rows are required for 5-fold cross-validation."
+            f"[train] At least {n_folds} rows are required for "
+            f"{n_folds}-fold cross-validation."
         )
 
     if df[target_column].isna().any():
@@ -109,13 +117,13 @@ def train_model(
     n_total = len(df)
 
     # K-Fold CV
-    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    kf = KFold(n_splits=n_folds, shuffle=shuffle, random_state=random_state)
 
     # Collect per-fold metrics, then average at the end.
     r2_scores, mae_scores, rmse_scores = [], [], []
     all_y_true, all_y_pred = [], []
 
-    print(f"[train] Running 5-fold CV on {n_total} rows...")
+    logger.info("Running %d-fold CV on %d rows...", n_folds, n_total)
 
     for fold_num, (train_idx, test_idx) in enumerate(kf.split(X), start=1):
 
@@ -126,8 +134,12 @@ def train_model(
 
         # Fresh preprocessor per fold - fit ONLY on fold-train (no leakage)
         fold_pipeline = Pipeline([
-            ("preprocess", get_feature_preprocessor()),
-            ("model", LinearRegression()),
+            ("preprocess", get_feature_preprocessor(
+                numeric_cols=numeric_cols,
+                categorical_cols=categorical_cols,
+                binary_cols=binary_cols,
+            )),
+            ("model", LinearRegression(fit_intercept=fit_intercept)),
         ])
 
         # model.fit(X_train, np.log1p(y_train))
@@ -147,9 +159,9 @@ def train_model(
         all_y_true.extend(y_fold_test.tolist())
         all_y_pred.extend(y_pred.tolist())
 
-        print(
-            f"[train] Fold {fold_num}: "
-            f"R²={fold_r2:.3f}  MAE={fold_mae:,.0f}  RMSE={fold_rmse:,.0f}"
+        logger.info(
+            "Fold %d: R²=%.3f  MAE=%.0f  RMSE=%.0f",
+            fold_num, fold_r2, fold_mae, fold_rmse,
         )
 
     # Mean CV metrics
@@ -160,11 +172,15 @@ def train_model(
     # Final refit on all rows:
     # After CV we retrain on 100% of data so the deployed model is as
     # strong as possible. This is the Pipeline that gets saved to disk.
-    print("\n[train] Refitting final Pipeline on ALL rows...")
+    logger.info("Refitting final Pipeline on ALL rows...")
 
     final_pipeline = Pipeline([
-        ("preprocess", get_feature_preprocessor()),
-        ("model", LinearRegression()),
+        ("preprocess", get_feature_preprocessor(
+            numeric_cols=numeric_cols,
+            categorical_cols=categorical_cols,
+            binary_cols=binary_cols,
+        )),
+        ("model", LinearRegression(fit_intercept=fit_intercept)),
     ])
     final_pipeline.fit(X, np.log1p(y))
 
@@ -187,17 +203,17 @@ def train_model(
         "all_y_pred": all_y_pred,
     }
 
-    print(
-        f"\n[train] CV mean over all 5 folds:\n"
-        f"R²={mean_r2:.3f}  Adj-R²={adj_r2:.3f}  "
-        f"MAE={mean_mae:,.0f}  RMSE={mean_rmse:,.0f}\n"
+    logger.info(
+        "CV mean over all %d folds: "
+        "R²=%.3f  Adj-R²=%.3f  MAE=%.0f  RMSE=%.0f",
+        n_folds,
+        mean_r2, adj_r2, mean_mae, mean_rmse,
     )
-
-    print(
-        f"[train] Final pipeline fitted on {n_total} rows "
-        f"({X.shape[1]} input columns).\n"
-        f"[train] pipeline.predict() returns log(price) — "
-        f"use np.expm1() to recover original price scale."
+    logger.info(
+        "Final pipeline fitted on %d rows (%d input columns). "
+        "pipeline.predict() returns log(price) - use np.expm1() "
+        "to recover original price scale.",
+        n_total, X.shape[1],
     )
 
     return final_pipeline, cv_results
