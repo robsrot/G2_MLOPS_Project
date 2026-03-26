@@ -29,13 +29,13 @@ jobs:
         shell: bash -el {0}
         run: |
           conda install -n base -c conda-forge conda-lock -y
-          conda run -n base conda-lock install --name mlops conda-lock.yml
+          conda run -n base conda-lock install --name housing_prices_mlops conda-lock.yml
 
       - name: Run pytest
         shell: bash -el {0}
         run: |
-          conda activate mlops
-          pytest -q
+          conda activate housing_prices_mlops
+          PYTHONPATH=$PYTHONPATH:$(pwd) pytest -q
 
       - name: Validate Docker build
         run: docker build -t housing-api:ci .
