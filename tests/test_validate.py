@@ -85,7 +85,8 @@ def test_validate_dataframe_fails_on_missing_column(clean_df: pd.DataFrame):
         validate_dataframe(
             bad, REQUIRED_COLUMNS,
             binary_cols=BINARY_COLS,
-            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+            valid_furnishing_values=[
+                "furnished", "semi-furnished", "unfurnished"],
         )
 
 
@@ -98,7 +99,8 @@ def test_validate_dataframe_fails_on_invalid_binary(clean_df: pd.DataFrame):
         validate_dataframe(
             bad, REQUIRED_COLUMNS,
             binary_cols=BINARY_COLS,
-            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+            valid_furnishing_values=[
+                "furnished", "semi-furnished", "unfurnished"],
         )
 
 
@@ -111,7 +113,8 @@ def test_validate_dataframe_fails_on_invalid_category(clean_df: pd.DataFrame):
         validate_dataframe(
             bad, REQUIRED_COLUMNS,
             binary_cols=BINARY_COLS,
-            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+            valid_furnishing_values=[
+                "furnished", "semi-furnished", "unfurnished"],
         )
 
 
@@ -127,7 +130,8 @@ def test_validate_dataframe_fails_on_non_positive_price(
         validate_dataframe(
             bad, REQUIRED_COLUMNS,
             binary_cols=BINARY_COLS,
-            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+            valid_furnishing_values=[
+                "furnished", "semi-furnished", "unfurnished"],
         )
 
 
@@ -141,7 +145,8 @@ def test_validate_dataframe_fails_on_nan_after_clean(clean_df: pd.DataFrame):
         validate_dataframe(
             bad, REQUIRED_COLUMNS,
             binary_cols=BINARY_COLS,
-            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+            valid_furnishing_values=[
+                "furnished", "semi-furnished", "unfurnished"],
         )
 
 
@@ -157,7 +162,8 @@ def test_validate_dataframe_fails_on_unexpected_column(
         validate_dataframe(
             bad, REQUIRED_COLUMNS,
             binary_cols=BINARY_COLS,
-            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+            valid_furnishing_values=[
+                "furnished", "semi-furnished", "unfurnished"],
         )
 
 
@@ -173,8 +179,11 @@ def test_validate_dataframe_fails_on_wrong_type():
         validate_dataframe([1, 2, 3], REQUIRED_COLUMNS)
 
 
-def test_validate_dataframe_fails_on_non_numeric_column(clean_df: pd.DataFrame):
-    """A column that should be numeric but contains strings must raise TypeError."""
+def test_validate_dataframe_fails_on_non_numeric_column(
+        clean_df: pd.DataFrame):
+    """
+    A column that should be numeric but contains strings must raise TypeError.
+    """
     bad = clean_df.copy()
     bad["area"] = "not_a_number"
     with pytest.raises((TypeError, ValueError)):
@@ -182,5 +191,6 @@ def test_validate_dataframe_fails_on_non_numeric_column(clean_df: pd.DataFrame):
             bad,
             REQUIRED_COLUMNS,
             binary_cols=BINARY_COLS,
-            valid_furnishing_values=["furnished", "semi-furnished", "unfurnished"],
+            valid_furnishing_values=[
+                "furnished", "semi-furnished", "unfurnished"],
         )

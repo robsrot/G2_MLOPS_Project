@@ -158,7 +158,7 @@ def ensure_raw_data_exists(
 
 def load_raw_data(
     raw_data_path: Path,
-    use_dummy_on_failure: bool = True,
+    use_dummy_on_failure: bool = False,
     kaggle_dataset: str = "yasserh/housing-prices-dataset",
     kaggle_filename: str = "Housing.csv",
 ) -> pd.DataFrame:
