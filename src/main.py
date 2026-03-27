@@ -81,6 +81,45 @@ def _require_str(section: dict, key: str) -> str:
     return value
 
 
+def _require_int(section: dict, key: str) -> int:
+    """Return section[key] if it exists and is an int. Raises if missing or
+      wrong type."""
+    if key not in section:
+        raise KeyError(f"Required key '{key}' missing from config section")
+    value = section[key]
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise KeyError(
+            f"Config key '{key}' must be an int, got: {value!r}"
+        )
+    return value
+
+
+def _require_bool(section: dict, key: str) -> bool:
+    """Return section[key] if it exists and is a bool. Raises if missing or
+      wrong type."""
+    if key not in section:
+        raise KeyError(f"Required key '{key}' missing from config section")
+    value = section[key]
+    if not isinstance(value, bool):
+        raise KeyError(
+            f"Config key '{key}' must be a bool, got: {value!r}"
+        )
+    return value
+
+
+def _require_list(section: dict, key: str) -> list:
+    """Return section[key] if it exists and is a list. Raises if missing or
+      wrong type."""
+    if key not in section:
+        raise KeyError(f"Required key '{key}' missing from config section")
+    value = section[key]
+    if not isinstance(value, list):
+        raise KeyError(
+            f"Config key '{key}' must be a list, got: {value!r}"
+        )
+    return value
+
+
 def _resolve_path(project_root: Path, relative: str) -> Path:
     """Join project_root with a relative path string from config. Returns
       absolute Path."""
@@ -157,7 +196,7 @@ def main() -> None:
 
     # 6. Set up logging (must happen before any logger.* calls below)
     configure_logging(
-        log_level=logging_cfg.get("level", "INFO"),
+        log_level=_require_str(logging_cfg, "level"),
         log_file=log_file_path,
     )
 
@@ -165,20 +204,22 @@ def main() -> None:
     logger.info("Housing Prices pipeline starting")
 
     target_column = _require_str(problem_cfg, "target_column")
-    log_to_wandb = bool(run_cfg.get("log_to_wandb", False))
+    log_to_wandb = _require_bool(run_cfg, "log_to_wandb")
 
     # Build the full required-column list from config for training validation.
     # Order: target first, then all feature groups — mirrors schema.py.
     feature_cols = (
-        features_cfg.get("log_transform_cols", [])
-        + features_cfg.get("numeric_passthrough", [])
-        + features_cfg.get("binary_cols", [])
-        + features_cfg.get("categorical_onehot", [])
+        _require_list(features_cfg, "log_transform_cols")
+        + _require_list(features_cfg, "numeric_passthrough")
+        + _require_list(features_cfg, "binary_cols")
+        + _require_list(features_cfg, "categorical_onehot")
     )
     required_columns = [target_column] + feature_cols
-    binary_cols = features_cfg.get("binary_cols", [])
-    valid_furnishing_values = features_cfg.get("valid_furnishing_values", [])
-    non_negative_cols = validation_cfg.get("numeric_non_negative_cols", [])
+    binary_cols = _require_list(features_cfg, "binary_cols")
+    valid_furnishing_values = _require_list(
+        features_cfg, "valid_furnishing_values")
+    non_negative_cols = _require_list(
+        validation_cfg, "numeric_non_negative_cols")
 
     # 8. Initialise W&B run
     wandb_run = None
@@ -206,11 +247,9 @@ def main() -> None:
         # ------------------------------------------------------------------
         # 10. LOAD raw training data
         # ------------------------------------------------------------------
-        fetch_if_missing = data_cfg.get("fetch_if_missing", True)
-        use_dummy_on_failure = data_cfg.get("use_dummy_on_failure", True)
-        kaggle_dataset = data_cfg.get(
-            "kaggle_dataset", "yasserh/housing-prices-dataset")
-        kaggle_filename = data_cfg.get("kaggle_filename", "Housing.csv")
+        fetch_if_missing = _require_bool(data_cfg, "fetch_if_missing")
+        kaggle_dataset = _require_str(data_cfg, "kaggle_dataset")
+        kaggle_filename = _require_str(data_cfg, "kaggle_filename")
         ensure_raw_data_exists(
             raw_data_path,
             fetch_if_missing=fetch_if_missing,
@@ -219,7 +258,6 @@ def main() -> None:
         )
         df_raw = load_raw_data(
             raw_data_path,
-            use_dummy_on_failure=use_dummy_on_failure,
             kaggle_dataset=kaggle_dataset,
             kaggle_filename=kaggle_filename,
         )
@@ -237,10 +275,10 @@ def main() -> None:
         # ------------------------------------------------------------------
         # 11. CLEAN
         # ------------------------------------------------------------------
-        drop_missing_rows = data_cfg.get("drop_missing_rows", False)
-        allow_duplicates = data_cfg.get("allow_duplicates", False)
-        binary_cols = features_cfg.get("binary_cols", [])
-        log_transform_cols = features_cfg.get("log_transform_cols", [])
+        drop_missing_rows = _require_bool(data_cfg, "drop_missing_rows")
+        allow_duplicates = _require_bool(data_cfg, "allow_duplicates")
+        binary_cols = _require_list(features_cfg, "binary_cols")
+        log_transform_cols = _require_list(features_cfg, "log_transform_cols")
         df_clean = clean_dataframe(
             df_raw,
             binary_cols=binary_cols,
@@ -286,20 +324,20 @@ def main() -> None:
         # n_folds=%d and fit_intercept are configured in config.yaml and
         # used by train.py internally; train_model() reads them at import time.
         # ------------------------------------------------------------------
+        regression_cfg = _require_section(training_cfg, "regression")
+        model_type = _require_str(regression_cfg, "model_type")
+        n_folds = _require_int(split_cfg, "n_folds")
+        random_state = _require_int(split_cfg, "random_state")
+        shuffle = _require_bool(split_cfg, "shuffle")
+        fit_intercept = _require_bool(regression_cfg, "fit_intercept")
+        numeric_cols = _require_list(features_cfg, "numeric_passthrough")
+        categorical_cols = _require_list(features_cfg, "categorical_onehot")
         logger.info(
             "Training: model_type=%s  n_folds=%d  target=%s",
-            training_cfg.get("regression", {})
-            .get("model_type", "linear_regression"),
-            split_cfg.get("n_folds", 5),
+            model_type,
+            n_folds,
             target_column,
         )
-        n_folds = split_cfg.get("n_folds", 5)
-        random_state = split_cfg.get("random_state", 42)
-        shuffle = split_cfg.get("shuffle", True)
-        fit_intercept = training_cfg.get(
-            "regression", {}).get("fit_intercept", True)
-        numeric_cols = features_cfg.get("numeric_passthrough", [])
-        categorical_cols = features_cfg.get("categorical_onehot", [])
         # Build feature preprocessor centrally from main so features.py
         # is explicitly orchestrated (grader checks orchestrated_module_count)
         preprocessor = get_feature_preprocessor(
@@ -324,9 +362,8 @@ def main() -> None:
         # ------------------------------------------------------------------
         # 15. EVALUATE
         # ------------------------------------------------------------------
-        n_bins_residuals = evaluation_cfg.get("n_bins_residuals", 30)
-        plot_title_suffix = evaluation_cfg.get(
-            "plot_title_suffix", "K-Fold CV")
+        n_bins_residuals = _require_int(evaluation_cfg, "n_bins_residuals")
+        plot_title_suffix = _require_str(evaluation_cfg, "plot_title_suffix")
         metrics = evaluate_model(cv_results, n_folds=n_folds)
         logger.info("CV metrics: %s", metrics)
 
@@ -338,7 +375,7 @@ def main() -> None:
                 "metrics/val/adj_r2": metrics["adjusted_r2"],
             })
 
-        if evaluation_cfg.get("save_plots", False):
+        if _require_bool(evaluation_cfg, "save_plots"):
             save_evaluation_plots(
                 cv_results,
                 reports_dir=reports_dir,
@@ -409,7 +446,7 @@ def main() -> None:
             X_infer=df_infer_clean
             )
 
-        if run_cfg.get("save_predictions", False):
+        if _require_bool(run_cfg, "save_predictions"):
             save_csv(df_predictions, predictions_artifact_path)
             logger.info("Predictions saved → %s", predictions_artifact_path)
 
