@@ -328,7 +328,7 @@ def main() -> None:
         model_type = _require_str(regression_cfg, "model_type")
         n_folds = _require_int(split_cfg, "n_folds")
         random_state = _require_int(split_cfg, "random_state")
-        shuffle = _require_bool(split_cfg, "shuffle")
+        shuffle = split_cfg.get("shuffle", True)
         fit_intercept = _require_bool(regression_cfg, "fit_intercept")
         numeric_cols = _require_list(features_cfg, "numeric_passthrough")
         categorical_cols = _require_list(features_cfg, "categorical_onehot")
@@ -362,8 +362,8 @@ def main() -> None:
         # ------------------------------------------------------------------
         # 15. EVALUATE
         # ------------------------------------------------------------------
-        n_bins_residuals = _require_int(evaluation_cfg, "n_bins_residuals")
-        plot_title_suffix = _require_str(evaluation_cfg, "plot_title_suffix")
+        n_bins_residuals = evaluation_cfg.get("n_bins_residuals", 30)
+        plot_title_suffix = evaluation_cfg.get("plot_title_suffix", "K-Fold CV")
         metrics = evaluate_model(cv_results, n_folds=n_folds)
         logger.info("CV metrics: %s", metrics)
 

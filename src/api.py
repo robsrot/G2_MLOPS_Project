@@ -162,30 +162,28 @@ async def lifespan(app: FastAPI):
     cfg = _load_config()
 
     # Set up logging as early as possible so all startup messages are captured
-    logging_cfg = cfg.get("logging", {})
-    log_file_str = cfg.get("paths", {}).get("log_file", "logs/api.log")
+    logging_cfg = cfg["logging"]
+    log_file_str = cfg["paths"]["log_file"]
     configure_logging(
-        log_level=logging_cfg.get("level", "INFO"),
+        log_level=logging_cfg["level"],
         log_file=PROJECT_ROOT / log_file_str,
     )
 
     logger.info("API starting up — loading model...")
 
     # Derive feature column list from config (same order as main.py / validate)
-    features_cfg = cfg.get("features", {})
+    features_cfg = cfg["features"]
     feature_cols: list[str] = (
-        features_cfg.get("log_transform_cols", [])
-        + features_cfg.get("numeric_passthrough", [])
-        + features_cfg.get("binary_cols", [])
-        + features_cfg.get("categorical_onehot", [])
+        features_cfg["log_transform_cols"]
+        + features_cfg["numeric_passthrough"]
+        + features_cfg["binary_cols"]
+        + features_cfg["categorical_onehot"]
     )
     app.state.feature_cols = feature_cols
-    app.state.binary_cols = features_cfg.get("binary_cols", [])
-    app.state.log_transform_cols = features_cfg.get("log_transform_cols", [])
-    app.state.valid_furnishing_values = features_cfg.get(
-        "valid_furnishing_values", [])
-    app.state.batch_size = cfg.get("wandb", {}).get(
-        "inference_buffer_size", 50)
+    app.state.binary_cols = features_cfg["binary_cols"]
+    app.state.log_transform_cols = features_cfg["log_transform_cols"]
+    app.state.valid_furnishing_values = features_cfg["valid_furnishing_values"]
+    app.state.batch_size = cfg["wandb"]["inference_buffer_size"]
 
     model_source = os.getenv("MODEL_SOURCE", "local")
 
@@ -193,9 +191,7 @@ async def lifespan(app: FastAPI):
         # Download the registered model artifact from W&B Model Registry
         entity = os.getenv("WANDB_ENTITY", "")
         alias = os.getenv("WANDB_MODEL_ALIAS", "prod")
-        registry_name = cfg.get("wandb", {}).get(
-            "model_registry_name", "housing-price-predictor"
-        )
+        registry_name = cfg["wandb"]["model_registry_name"]
 
         logger.info(
             "MODEL_SOURCE=wandb — downloading artifact %s/%s:%s",
@@ -221,8 +217,7 @@ async def lifespan(app: FastAPI):
 
     else:
         # Default: load from local disk path specified in config
-        model_path_str = cfg.get("paths", {}).get(
-            "model_artifact", "models/model.joblib")
+        model_path_str = cfg["paths"]["model_artifact"]
         model_path = PROJECT_ROOT / model_path_str
         app.state.model_version = model_path.name
         logger.info("MODEL_SOURCE=local — loading from %s", model_path)

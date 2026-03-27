@@ -45,10 +45,10 @@ The dataset is the [Kaggle Housing Prices dataset](https://www.kaggle.com/datase
 
 | Criterion | Threshold | Result |
 |---|---|---|
-| R² | ≥ 0.65 | 0.653 |
-| Adjusted R² | ≥ 0.64 | 0.644 |
-| MAE | ≤ 868,000 (±20% of median) | 747,580 |
-| RMSE | — | 1,039,102 |
+| R² | ≥ 0.65 | 0.661 |
+| Adjusted R² | ≥ 0.64 | 0.653 |
+| MAE | ≤ 868,000 (±20% of median) | 767,994 |
+| RMSE | — | 1,052,051 |
 | CV stability | No single fold deviates > 5% R² from mean | Confirmed across 5 folds |
 
 ---
@@ -166,6 +166,12 @@ G2_MLOPS_Project/
 ## Setup — Local Development
 
 **Prerequisites:** conda, Docker Desktop
+
+> **Platform note:** `conda-lock.yml` targets **Linux-64** only. macOS (including Apple Silicon) and Windows users should either regenerate the lockfile (`conda-lock -f environment.yml -p linux-64 -p osx-arm64 -p win-64`) or create the environment directly from `environment.yml` instead:
+>
+> ```bash
+> conda env create -f environment.yml
+> ```
 
 > **⚠️ Required before running: add the dataset**
 >
