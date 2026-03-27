@@ -4,6 +4,15 @@
 # Code-level constants (column schemas, validation rules) stay in src/ modules.
 
 # ---------------------------------------------------------------------------
+# 0. ENVIRONMENT
+# ---------------------------------------------------------------------------
+environment:
+  python_version: ">=3.10,<3.13"
+  platforms:
+    - linux-64
+  notes: "conda-lock.yml is currently Linux-64 only. Regenerate for other platforms with: conda-lock -f environment.yml -p linux-64 -p osx-arm64 -p win-64"
+
+# ---------------------------------------------------------------------------
 # 1. PATHS
 # ---------------------------------------------------------------------------
 paths:
