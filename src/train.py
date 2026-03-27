@@ -184,7 +184,7 @@ def train_model(
     logger.info("Refitting final Pipeline on ALL rows...")
 
     # For the final refit we use the passed-in preprocessor directly (no clone
-    # needed here — this is the one that gets saved into the Pipeline artifact).
+    # needed here — this is the one that gets saved into the Pipeline artifact)
     _final_preprocessor = (
         get_feature_preprocessor(
             numeric_cols=numeric_cols,

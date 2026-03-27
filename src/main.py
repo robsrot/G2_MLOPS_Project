@@ -346,7 +346,8 @@ def main() -> None:
             binary_cols=binary_cols,
         )
         logger.info(
-            "Feature preprocessor built: numeric=%s | categorical=%s | binary=%s",
+            "Feature preprocessor built: "
+            "numeric=%s | categorical=%s | binary=%s",
             numeric_cols, categorical_cols, binary_cols,
         )
         model_pipeline, cv_results = train_model(
@@ -363,7 +364,8 @@ def main() -> None:
         # 15. EVALUATE
         # ------------------------------------------------------------------
         n_bins_residuals = evaluation_cfg.get("n_bins_residuals", 30)
-        plot_title_suffix = evaluation_cfg.get("plot_title_suffix", "K-Fold CV")
+        plot_title_suffix = evaluation_cfg.get(
+            "plot_title_suffix", "K-Fold CV")
         metrics = evaluate_model(cv_results, n_folds=n_folds)
         logger.info("CV metrics: %s", metrics)
 
